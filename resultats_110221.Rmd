@@ -1,0 +1,848 @@
+---
+title: "Résultats_110221"
+author: "Alice Danguy des Déserts"
+date: "11 février 2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list = ls())
+graphics.off()
+set.seed(1)
+
+
+suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(compiler))
+suppressPackageStartupMessages(library(ggpubr))
+
+titre_crosses <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/crosses.txt"
+
+
+titre_best_crosses_gebv_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_gebv_g1_simple.txt"
+titre_best_crosses_gebv_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_gebv_g1_real.txt"
+titre_best_crosses_uc_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_uc_g1_simple.txt"
+titre_best_crosses_uc_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_uc_g1_real.txt"
+titre_best_crosses_logw_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_logw_g1_simple.txt"
+titre_best_crosses_logw_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_logw_g1_real.txt"
+titre_best_crosses_random_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_random_g1_simple.txt"
+titre_best_crosses_random_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/best_crosses_random_g1_real.txt"
+
+titre_progenies_random_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_random_g1_real.txt"
+titre_progenies_random_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_random_g1_simple.txt"
+titre_progenies_gebv_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_gebv_g1_real.txt"
+titre_progenies_gebv_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_gebv_g1_simple.txt"
+titre_progenies_uc_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_uc_g1_real.txt"
+titre_progenies_uc_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_uc_g1_simple.txt"
+titre_progenies_logw_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_logw_g1_real.txt"
+titre_progenies_logw_simple <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_logw_g1_simple.txt"
+
+
+
+titre_lines_sd_predictions_WE <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_sd_predictions_WE.txt"
+titre_pedigree_sd_predictions_WE <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/pedigree_sd_predictions_WE.txt"
+titre_lines_sd_predictions_EA <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_sd_predictions_EA.txt"
+titre_pedigree_sd_predictions_EA <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/pedigree_sd_predictions_EA.txt"
+titre_lines_sd_predictions_CsRe <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_sd_predictions_CsRe.txt"
+titre_pedigree_sd_predictions_CsRe <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/pedigree_sd_predictions_CsRe.txt"
+
+
+
+
+
+```
+
+# Accuracy of predictions, 200 crosses, 200 progenies/cross
+```{r, echo=F}
+crosses <- fread(titre_crosses)
+
+lines_sd_predictions_WE <- fread(titre_lines_sd_predictions_WE) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv)
+
+
+
+pedigree_sd_predictions_WE <- fread(titre_pedigree_sd_predictions_WE) %>%
+  filter(generation==1)
+
+
+best_parent_WE = fread(titre_lines_sd_predictions_WE) %>%
+  filter(generation==0) %>%
+  summarise(best_parent=max(gebv, na.rm=T)) %>%
+  unlist() %>%
+  as.vector()
+# value of best parent
+# selection rate in Florimond Desprez
+selection_rate_uc=0.07
+
+predictions_WE <- lines_sd_predictions_WE %>%
+  inner_join(pedigree_sd_predictions_WE %>%
+               dplyr::select(ID, P1, P2), by="ID") %>%
+  inner_join(crosses, by=c("P1", "P2")) %>%
+    mutate(logw_WE=1-10^(logw_WE)) %>%
+  group_by(P1, P2, u, sd_WE, uc_WE, logw_WE) %>%
+  mutate(q=quantile(gebv,1-selection_rate_uc)) %>%
+  mutate(gebv2=ifelse(gebv >= q, gebv, NA)) %>%
+  mutate(superior_best_parent=ifelse(gebv >= best_parent_WE, 1, 0)) %>%
+    mutate(nb_superior_best_parent=sum(superior_best_parent)) %>%
+  mutate(prop_superior_best_parent=nb_superior_best_parent/n()) %>%
+  rename(gebv_exp=u,
+         proba_progeny_better_best_parent_exp=logw_WE,
+         sd_exp=sd_WE,
+         uc_exp=uc_WE) %>%
+  summarise(gebv_obs=mean(gebv),
+            sd_obs=sd(gebv),
+            uc_obs=mean(gebv2, na.rm=T),
+            proba_progeny_better_best_parent_obs=unique(prop_superior_best_parent)) %>%
+  dplyr::select(P1, P2,
+                gebv_exp, gebv_obs,
+                sd_exp, sd_obs,
+                uc_exp, uc_obs,
+                proba_progeny_better_best_parent_exp, proba_progeny_better_best_parent_obs) %>%
+  as.data.frame()
+
+head(predictions_WE)
+
+size=10
+g1_WE <- predictions_WE %>% 
+  ggplot(aes(x=gebv_exp, y=gebv_obs)) +
+  geom_point() + 
+  geom_abline(slope=1, intercept = 0, col="red") +
+  xlab("expected value of progeny") +
+  ylab("observed value of progeny") +
+  ggtitle("Mean") +
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+g2_WE <- predictions_WE %>% 
+  ggplot(aes(x=sd_exp, y=sd_obs)) +
+  geom_point() + 
+  geom_abline(slope=1, intercept = 0, col="red") +
+  xlab("expected sd of progeny") +
+  ylab("observed sd of progeny") +
+  ggtitle("Variability")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+
+
+g3_WE <- predictions_WE %>%
+  ggplot(aes(x=uc_exp, y=uc_obs)) +
+  geom_point() + 
+  geom_abline(slope=1, intercept = 0, col="red") +
+  xlab("expected uc of progeny (q=93%)") +
+  ylab("observed uc of progeny (q=93%)") +
+  ggtitle("UC")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+g4_WE <- predictions_WE %>% 
+  ggplot(aes(x=proba_progeny_better_best_parent_exp, y=proba_progeny_better_best_parent_obs)) +
+  geom_point() + 
+  geom_abline(slope=1, intercept = 0, col="red") +
+  xlab("expected probability") +
+  ylab("observed probability") +
+  ggtitle("probability to produce progeny > best parent")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+
+ggarrange(g1_WE, g2_WE, g3_WE, g4_WE)
+
+
+
+
+
+```
+
+# Impact of genetic map
+```{r, echo=F}
+
+
+
+
+
+WE_CsRe <- crosses %>% ggplot(aes(x=sd_WE, y=sd_CsRe)) +
+  geom_point(size=0.3)+
+  geom_abline(slope=1, intercept = 0, col="red") +
+  xlab("with WE genetic map") +
+  ylab("with CsRe genetic map") +
+  ggtitle("Variability of progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+WE_EA <- crosses %>% ggplot(aes(x=sd_WE, y=sd_EA)) +
+  geom_point(size=0.3)+
+  geom_abline(slope=1, intercept = 0, col="red")+
+  xlab("with WE genetic map") +
+  ylab("with EA genetic map") +
+  ggtitle("Variability of progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+
+
+ggarrange(WE_CsRe, WE_EA, ncol=2)
+
+crosses3 <-crosses %>%
+  mutate(WE_EE=abs(sd_WE-sd_EE)/sd_WE,
+         WE_CsRe=abs(sd_WE-sd_CsRe)/sd_WE,
+         WE_WA=abs(sd_WE-sd_WA)/sd_WE,
+            WE_EA=abs(sd_WE-sd_EA)/sd_WE) %>%
+  dplyr::select(P1, P2, WE_EE, WE_CsRe, WE_EA, WE_WA) %>%
+  pivot_longer(cols = c("WE_EE", "WE_CsRe", "WE_EA", "WE_WA"), names_to = "delta") %>%
+   mutate(delta=factor(delta, levels=c("WE_EE","WE_WA","WE_EA","WE_CsRe")))
+
+
+crosses3 %>%
+  ggplot(aes(x=delta, y=value)) + geom_boxplot() +
+  xlab(" More and more distant populations") +
+  ylab("differences in expected variability of progenies (%)") +
+  ggtitle("Impact of genetic map")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+mod <- lm(value~delta, data=crosses3)
+summary(mod)
+# The error significantly increase when using more distant populations
+# But the effect is very weak, the error rarely exceed 2% of predicted variance in WE-CsRe (99th percentile)
+
+
+```
+
+
+
+
+# Relationship mean-variance
+```{r relation mean-variance, echo=FALSE}
+crosses %>% mutate(top_uc=quantile(uc_WE, 0.95)) %>%
+  mutate(top_uc=case_when(uc_WE <= top_uc +0.05 & uc_WE >= top_uc -0.05 ~ "UC = 4.23",
+                          uc_WE > top_uc +0.01 ~ "UC > 4.23",
+                          uc_WE < top_uc - 0.01 ~ "low UC")) %>%
+  mutate(top_uc=factor(top_uc, levels = rev(c("low UC","UC = 4.23", "UC > 4.23")))) %>%
+  ggplot(aes(x=u, y=sd_WE, col=top_uc)) +
+  geom_point() +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny") + 
+  theme(legend.title = element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size)) +
+  ggtitle("Relationship between expected value and variability of progeny")
+```
+
+# Distribution conjointe de gebv, uc, logw
+```{r}
+
+g1 <- crosses %>% ggplot(aes(x=u, y=uc_WE)) +
+  geom_point()+
+  xlab("expected mean of progeny") +
+  ylab("UC") + 
+  geom_abline(slope=1, intercept = 0, col="red") +
+  theme(legend.title = element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size)) +
+  ggtitle("Relationship between expected value and UC")
+
+
+g2 <- crosses %>% ggplot(aes(x=u, y=abs(logw_WE))) +
+  geom_point()+
+  xlab("expected mean of progeny") +
+  ylab(" - logw") + 
+  theme(legend.title = element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size)) +
+  ggtitle("Relationship between expected value and logw") 
+
+g3 <- crosses %>% ggplot(aes(x=u, y=abs(logw_WE))) +
+  geom_point()+
+  xlab("expected mean of progeny") +
+  ylab("- logw") + 
+  theme(legend.title = element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size)) +
+  ggtitle("Relationship between expected value and logw") +
+    scale_y_continuous(trans="log10")
+
+g4 <- crosses %>% ggplot(aes(x=uc_WE, y=logw_WE)) +
+  geom_point()+
+  xlab("uc") +
+  ylab("logw") + 
+  theme(legend.title = element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size)) +
+  ggtitle("Relationship between uc and logw")
+
+ggarrange(g1, g2, ncol=2)
+
+
+```
+
+
+
+
+
+# With a very simple mating plan : 10 crosses, 1 000 progenies/cross
+
+
+```{r cars, echo=F}
+
+
+best_crosses_gebv_simple <- fread(titre_best_crosses_gebv_simple)%>%
+  dplyr::select(-generation, -run)
+
+
+best_crosses_uc_simple <- fread(titre_best_crosses_uc_simple) %>% 
+  dplyr::select(-generation, -run)
+
+
+
+best_crosses_logw_simple <- fread(titre_best_crosses_logw_simple)%>%
+  dplyr::select(-generation, -run)
+
+
+best_crosses_random_simple <- fread(titre_best_crosses_random_simple)%>%
+  dplyr::select(-generation, -run)
+
+
+
+
+
+
+crosses_choosen_simple <- crosses %>% 
+  full_join(best_crosses_gebv_simple %>%
+              dplyr::select(P1, P2) %>%
+              mutate(choosen.gebv=T), by=c("P1","P2")) %>%
+  full_join(best_crosses_uc_simple %>% dplyr::select(P1, P2) %>%
+              mutate(choosen.uc=T), by=c("P1","P2")) %>%
+  full_join(best_crosses_logw_simple %>% dplyr::select(P1, P2) %>%
+              mutate(choosen.logw=T), by=c("P1","P2")) %>%
+  full_join(best_crosses_random_simple %>% dplyr::select(P1, P2) %>%
+              mutate(choosen.random=T), by=c("P1","P2")) %>%
+  mutate(choosen.uc=ifelse(is.na(choosen.uc), F, T)) %>%
+  mutate(choosen.gebv=ifelse(is.na(choosen.gebv), F, T)) %>%
+  mutate(choosen.logw=ifelse(is.na(choosen.logw), F, T)) %>%
+  mutate(choosen.random=ifelse(is.na(choosen.random), F, T)) %>%
+  mutate(choosen=case_when(choosen.uc==T & choosen.gebv==T & choosen.logw==T & choosen.random==T~ "gebv+uc+logw+random",
+                           choosen.uc==F & choosen.gebv==F & choosen.logw==F & choosen.random==F~ "none",
+                           choosen.uc==T & choosen.gebv==F & choosen.logw==F & choosen.random==F~ "uc",
+                           choosen.uc==F & choosen.gebv==T & choosen.logw==F & choosen.random==F~ "gebv",
+                           choosen.uc==F & choosen.gebv==F & choosen.logw==T & choosen.random==F~ "logw",
+                               choosen.uc==T & choosen.gebv==F & choosen.logw==T & choosen.random==F~ "uc+logw",
+                               choosen.uc==F & choosen.gebv==T & choosen.logw==T & choosen.random==F~ "gebv+logw",
+                               choosen.uc==T & choosen.gebv==T & choosen.logw==T & choosen.random==F~ "gebv+uc+logw",
+                               choosen.uc==T & choosen.gebv==T & choosen.logw==F & choosen.random==F~ "gebv+uc",
+                           choosen.uc==F & choosen.gebv==F & choosen.logw==F & choosen.random==T~ "random")) %>%
+  filter(choosen != "none") %>%
+  dplyr::select(P1, P2, u, sd_WE, choosen) %>%
+  mutate(choosen=factor(choosen, levels = c("gebv+uc+logw","gebv+logw","gebv+uc", "uc+logw","gebv", "uc","logw","random")))
+
+crosses_choosen_simple %>% filter(choosen !="random")
+
+g1 <- crosses %>% 
+  ggplot(aes(x=u, y=sd_WE)) +
+  geom_point() +
+  geom_point(data=crosses_choosen_simple, aes(x=u, y=sd_WE, col=choosen), size=3) +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny") + 
+  theme(legend.title = element_blank()) +
+  ggtitle("Relationship")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+
+g2 <- crosses %>% 
+  ggplot(aes(x=u, y=sd_WE)) +
+  geom_point() +
+  geom_point(data=crosses_choosen_simple, aes(x=u, y=sd_WE, col=choosen), size=3) +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny") + 
+  theme(legend.title = element_blank()) +
+  scale_x_continuous(limits=c(5, max(crosses$u))) +
+  ggtitle("Zoom")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+ggarrange(g1, g2, common.legend = T)
+
+
+
+progenies_random_simple <- fread(titre_progenies_random_simple) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+
+progenies_uc_simple <- fread(titre_progenies_uc_simple) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+
+progenies_gebv_simple <- fread(titre_progenies_gebv_simple) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+
+progenies_logw_simple <- fread(titre_progenies_logw_simple) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+progenies_simple <- rbind(progenies_gebv_simple, progenies_uc_simple, progenies_logw_simple, progenies_random_simple) %>%
+  arrange(ID, best_crosses, run) %>%
+  mutate(best_crosses=factor(best_crosses, levels=c("random","gebv","uc","logw")))
+
+
+best_parent <- crosses %>% dplyr::select(u) %>%
+  max() %>%
+  unlist() %>%
+  as.vector()
+
+
+progenies_simple %>% ggplot(aes(x=best_crosses, y=gebv)) +
+  geom_boxplot() +
+  xlab("optimisation") +
+  ylab("gebv")+
+  ggtitle("all progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+progenies_simple %>%
+  filter(best_crosses !="random") %>%
+  ggplot(aes(x=best_crosses, y=gebv)) +
+  geom_boxplot() +
+  xlab("optimisation") +
+  ylab("gebv")+
+  ggtitle("all progenies (without random)")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))  
+
+
+
+calcul_stats_top_progeny <- function(progenies, selection_rate){
+
+
+
+top_progenies <- progenies %>%
+  mutate(run=as.factor(run)) %>%
+  filter(best_crosses !="random") %>%
+  group_by(best_crosses, run) %>%
+  mutate(q=quantile(gebv, 1-selection_rate)) %>%
+  mutate(gebv2=ifelse(gebv>=q, gebv, NA)) %>%
+  mutate(gebv3=ifelse(gebv >= best_parent, 0, 1)) %>%
+  summarise(mean=mean(gebv2, na.rm=T),
+            max=max(gebv2, na.rm=T),
+            prop_sup_best_parent=round(sum(gebv3)/n(),2),
+            sd=sd(gebv2, na.rm=T)) %>%
+  ungroup() %>%
+  as.data.frame()
+
+return(top_progenies)
+
+}
+
+
+stats_top_progenies_simple <- calcul_stats_top_progeny(progenies=progenies_simple, selection_rate = selection_rate_uc)
+
+head(stats_top_progenies_simple)
+
+
+# One point = the mean of top 7% progenies in one simulation. I ran 10 simulations, so there are 10 points per boxplot.
+stats_top_progenies_simple %>%
+  ggplot(aes(x=best_crosses, y=mean)) +
+  geom_boxplot() +
+  geom_point(data=stats_top_progenies_simple, aes(x=best_crosses, y=mean, col=run)) +
+  xlab("optimisation") +
+  ylab("mean of progenies")+
+  ggtitle("top progenies (best 7% of each run)")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+mod_mean <- lm(mean~best_crosses, data=stats_top_progenies_simple)
+summary(mod_mean)
+
+cat("\n genetic gain on mean (%)\n")
+round(mod_mean$coefficients[2]/mod_mean$coefficients[1], digits=3)*100
+round(mod_mean$coefficients[3]/mod_mean$coefficients[1], digits=3)*100
+# ccl : the everage genetic gain increased by ~ 0.1% to 0.2%
+
+stats_top_progenies_simple %>%
+  ggplot(aes(x=best_crosses, y=max)) +
+  geom_boxplot() +
+  geom_point(data=stats_top_progenies_simple, aes(x=best_crosses, y=max, col=run)) +
+  xlab("optimisation") +
+  ylab("gebv of best progeny")+
+  ggtitle("Best of the best progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+mod_max <- lm(max~best_crosses, data=stats_top_progenies_simple)
+summary(mod_max)
+
+
+# ccl : the best progeny increased by ~ 0.3% to 0.9%
+
+
+# just for fun: uc and logw select crosses with higher variability
+progenies_simple %>%
+  group_by(best_crosses, run) %>%
+  summarise(sd=sd(gebv)) %>%
+  ggplot(aes(x=best_crosses, y=sd)) +
+  geom_boxplot() +
+  geom_point(data=progenies_simple %>%
+  group_by(best_crosses, run) %>%
+  summarise(sd=sd(gebv)), aes(x=best_crosses, y=sd)) +
+  xlab("optimisation") +
+  ylab("sd of progenies")+
+  ggtitle("variability of all progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+
+```
+
+# With a more realistic mating plan
+```{r, echo=F}
+
+best_crosses_gebv_real <- fread(titre_best_crosses_gebv_real)%>%
+  dplyr::select(-generation, -run)
+
+
+best_crosses_uc_real <- fread(titre_best_crosses_uc_real) %>% 
+  dplyr::select(-generation, -run)
+
+
+
+best_crosses_logw_real <- fread(titre_best_crosses_logw_real)%>%
+  dplyr::select(-generation, -run)
+
+
+best_crosses_random_real <- fread(titre_best_crosses_random_real)%>%
+  dplyr::select(-generation, -run)
+
+
+crosses_choosen_real <- crosses %>% 
+  full_join(best_crosses_gebv_real %>%
+              dplyr::select(P1, P2) %>%
+              mutate(choosen.gebv=T), by=c("P1","P2")) %>%
+  full_join(best_crosses_uc_real %>% dplyr::select(P1, P2) %>%
+              mutate(choosen.uc=T), by=c("P1","P2")) %>%
+  full_join(best_crosses_logw_real %>% dplyr::select(P1, P2) %>%
+              mutate(choosen.logw=T), by=c("P1","P2")) %>%
+  full_join(best_crosses_random_real %>% dplyr::select(P1, P2) %>%
+              mutate(choosen.random=T), by=c("P1","P2")) %>%
+  mutate(choosen.uc=ifelse(is.na(choosen.uc), F, T)) %>%
+  mutate(choosen.gebv=ifelse(is.na(choosen.gebv), F, T)) %>%
+  mutate(choosen.logw=ifelse(is.na(choosen.logw), F, T)) %>%
+  mutate(choosen.random=ifelse(is.na(choosen.random), F, T)) %>%
+  mutate(choosen=case_when(choosen.uc==T & choosen.gebv==T & choosen.logw==T & choosen.random==T~ "gebv+uc+logw+random",
+                           choosen.uc==F & choosen.gebv==F & choosen.logw==F & choosen.random==F~ "none",
+                           choosen.uc==T & choosen.gebv==F & choosen.logw==F & choosen.random==F~ "uc",
+                           choosen.uc==F & choosen.gebv==T & choosen.logw==F & choosen.random==F~ "gebv",
+                           choosen.uc==F & choosen.gebv==F & choosen.logw==T & choosen.random==F~ "logw",
+                               choosen.uc==T & choosen.gebv==F & choosen.logw==T & choosen.random==F~ "uc+logw",
+                               choosen.uc==F & choosen.gebv==T & choosen.logw==T & choosen.random==F~ "gebv+logw",
+                               choosen.uc==T & choosen.gebv==T & choosen.logw==T & choosen.random==F~ "gebv+uc+logw",
+                               choosen.uc==T & choosen.gebv==T & choosen.logw==F & choosen.random==F~ "gebv+uc",
+                           choosen.uc==F & choosen.gebv==F & choosen.logw==F & choosen.random==T~ "random")) %>%
+  filter(choosen != "none") %>%
+  dplyr::select(P1, P2, u, sd_WE, choosen) %>%
+  mutate(choosen=factor(choosen, levels = c("gebv+uc+logw","gebv+logw","gebv+uc", "uc+logw","gebv", "uc","logw","random")))
+
+
+
+g1 <- crosses %>% 
+  ggplot(aes(x=u, y=sd_WE)) +
+  geom_point() +
+  geom_point(data=crosses_choosen_real, aes(x=u, y=sd_WE, col=choosen), size=2) +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny") + 
+  theme(legend.title = element_blank()) +
+  ggtitle("Relationship")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+
+g2 <- crosses %>% 
+  ggplot(aes(x=u, y=sd_WE)) +
+  geom_point() +
+  geom_point(data=crosses_choosen_real, aes(x=u, y=sd_WE, col=choosen), size=2) +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny") + 
+  theme(legend.title = element_blank()) +
+  scale_x_continuous(limits=c(3, max(crosses$u))) +
+  ggtitle("Zoom")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+ggarrange(g1, g2, common.legend = T)
+
+progenies_random_real <- fread(titre_progenies_random_real) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+
+progenies_uc_real <- fread(titre_progenies_uc_real) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+progenies_gebv_real <- fread(titre_progenies_gebv_real) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+
+progenies_logw_real <- fread(titre_progenies_logw_real) %>%
+  filter(generation==1) %>%
+  dplyr::select(ID, gebv, best_crosses, run)
+
+
+progenies_real <- rbind(progenies_gebv_real, progenies_uc_real, progenies_logw_real, progenies_random_real) %>%
+  arrange(ID, best_crosses, run) %>%
+  mutate(best_crosses=factor(best_crosses, levels=c("random","gebv","uc","logw")))
+
+
+
+
+progenies_real %>% ggplot(aes(x=best_crosses, y=gebv)) +
+  geom_boxplot() +
+  xlab("optimisation") +
+  ylab("gebv")+
+  ggtitle("all progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+progenies_real %>%
+  filter(best_crosses !="random") %>%
+  ggplot(aes(x=best_crosses, y=gebv)) +
+  geom_boxplot() +
+  xlab("optimisation") +
+  ylab("gebv")+
+  ggtitle("all progenies (without random)")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))  
+
+
+stats_top_progenies_real_0.07 <- calcul_stats_top_progeny(progenies=progenies_real, selection_rate = selection_rate_uc)
+
+
+
+# One point = the mean of top 7% progenies in one simulation. I ran 10 simulations, so there are 10 points per boxplot.
+stats_top_progenies_real_0.07 %>%
+  ggplot(aes(x=best_crosses, y=mean)) +
+  geom_boxplot() +
+  geom_point(data=stats_top_progenies_real_0.07, aes(x=best_crosses, y=mean, col=run)) +
+  xlab("optimisation") +
+  ylab("mean of progenies")+
+  ggtitle("top progenies (best 7% of each run)")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+mod_mean <- lm(mean~best_crosses, data=stats_top_progenies_real_0.07)
+summary(mod_mean)
+cat("\n genetic gain on mean (%)\n")
+round(mod_mean$coefficients[2]/mod_mean$coefficients[1], digits=3)*100
+round(mod_mean$coefficients[3]/mod_mean$coefficients[1], digits=3)*100
+# ccl : the everage genetic gain increased by ~ 1% (uc) and 7% (logw)
+
+stats_top_progenies_real_0.07 %>%
+  ggplot(aes(x=best_crosses, y=max)) +
+  geom_boxplot() +
+  geom_point(data=stats_top_progenies_real_0.07, aes(x=best_crosses, y=max, col=run)) +
+  xlab("optimisation") +
+  ylab("gebv of best progeny")+
+  ggtitle("Best of the best progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+mod_max <- lm(max~best_crosses, data=stats_top_progenies_real_0.07)
+summary(mod_max)
+cat("\n genetic gain on best (%)\n")
+round(mod_mean$coefficients[2]/mod_mean$coefficients[1], digits=3)*100
+round(mod_max$coefficients[3]/mod_max$coefficients[1], digits=3)*100
+
+# ccl : the best progeny increased by ~ 1% (uc) to 7%( logw)
+
+
+# just for fun: uc and logw select crosses with higher variability
+progenies_real %>%
+  group_by(best_crosses, run) %>%
+  summarise(sd=sd(gebv)) %>%
+  ggplot(aes(x=best_crosses, y=sd)) +
+  geom_boxplot() +
+  geom_point(data=progenies_real %>%
+  group_by(best_crosses, run) %>%
+  summarise(sd=sd(gebv)), aes(x=best_crosses, y=sd)) +
+  xlab("optimisation") +
+  ylab("sd of progenies")+
+  ggtitle("variability of all progenies")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+```
+
+
+
+
+
+
+```{r, echo=F}
+
+
+stats_top_progenies_real_0.001 <- calcul_stats_top_progeny(progenies=progenies_real, selection_rate = 0.001) %>%
+  mutate(selection_rate=0.001)
+stats_top_progenies_real_0.01 <- calcul_stats_top_progeny(progenies=progenies_real, selection_rate = 0.01) %>%
+  mutate(selection_rate=0.01)
+
+stats_top_progenies_real_0.05 <- calcul_stats_top_progeny(progenies=progenies_real, selection_rate = 0.05) %>%
+  mutate(selection_rate=0.05)
+
+
+stats_top_progenies_real_0.07 <- stats_top_progenies_real_0.07 %>%
+  mutate(selection_rate=0.07)
+
+stats_top_progenies_real_0.1 <- calcul_stats_top_progeny(progenies=progenies_real, selection_rate = 0.1) %>%
+  mutate(selection_rate=0.1)
+
+stats_top_progenies_real_0.15 <- calcul_stats_top_progeny(progenies=progenies_real, selection_rate = 0.15) %>%
+  mutate(selection_rate=0.15)
+
+stats_top_progenies_real_0.2 <- calcul_stats_top_progeny(progenies=progenies_real, selection_rate = 0.2) %>%
+  mutate(selection_rate=0.2)
+
+
+rbind(stats_top_progenies_real_0.001,
+                                      stats_top_progenies_real_0.01,
+                                      stats_top_progenies_real_0.05,
+                                      stats_top_progenies_real_0.07,
+                                      stats_top_progenies_real_0.1,
+                                      stats_top_progenies_real_0.15,
+                                      stats_top_progenies_real_0.2) %>%
+  mutate(selection_rate=as.factor(selection_rate)) %>%
+  ggplot(aes(x=selection_rate, y=mean, col=best_crosses)) +
+  geom_boxplot() +
+  xlab("selection rate") +
+  ylab("mean of progenies")+
+  ggtitle("top progenies (best x% of each run)")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size))
+
+
+
+
+
+
+
+
+
+
+```
+
+```{r, echo=F}
+
+
+titre_pedigree_gebv_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/pedigree_gebv_g1_real.txt"
+pedigree_gebv_real <- fread(titre_pedigree_gebv_real) %>%
+  mutate(best_crosses="gebv") 
+
+titre_pedigree_logw_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/pedigree_logw_g1_real.txt"
+pedigree_logw_real <- fread(titre_pedigree_logw_real)%>%
+  mutate(best_crosses="logw") 
+titre_pedigree_uc_real <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/pedigree_uc_g1_real.txt"
+pedigree_uc_real <- fread(titre_pedigree_uc_real) %>%
+  mutate(best_crosses="uc")
+
+ pedigree_real <- rbind(pedigree_gebv_real, pedigree_logw_real, pedigree_uc_real) %>%
+  filter(generation==1) 
+
+
+most_successful_crosses <-  progenies_real %>% filter(best_crosses !="random")%>%
+  group_by(best_crosses, run) %>%
+  arrange(desc(gebv)) %>%
+  slice(1) %>%
+  ungroup() %>%
+   inner_join(pedigree_real, by=c("ID", "best_crosses","run")) %>%
+   pivot_wider(id_cols = c("P1","P2","run"), names_from = "best_crosses", values_from = "gebv") %>%
+   mutate(choosen=case_when(!is.na(gebv) & !is.na(uc) & !is.na(logw) ~ "gebv+uc+logw",
+                            is.na(gebv) & !is.na(uc) & !is.na(logw) ~ "uc+logw",
+                            is.na(gebv) & is.na(uc) & !is.na(logw)~"logw",
+                            !is.na(gebv) & is.na(uc) & is.na(logw) ~ "gebv",
+                            is.na(gebv) & !is.na(uc) & is.na(logw)~"uc" )) %>%
+  dplyr::select(P1, P2, run, gebv, uc, logw, choosen) %>%
+  unique() %>%
+  inner_join(crosses%>%dplyr::select(P1, P2, u, sd), by=c("P1","P2") )
+   
+most_successful_crosses
+crosses %>% 
+  ggplot(aes(x=u, y=sd)) +
+  geom_point() +
+  geom_point(data=most_successful_crosses, aes(x=u, y=sd, col=choosen), size=3) +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny") + 
+  theme(legend.title = element_blank()) +
+  ggtitle("Relationship")+
+  theme(plot.title = element_text(hjust = 0.5, size=size),
+        axis.title.y = element_text(size=size),
+        axis.title.x = element_text(size=size)) +
+  scale_x_continuous(limits=c(3, max(crosses$u)))
+
+
+AO15011_XXX00000000000000000 + AO15018_XXX00000000000000000 give the best u
+but not choosen in gebv
+both parent are used in gebv, but underxploited compare to logw
+best_crosses_gebv_real %>% filter(P1=="AO15018_XXX00000000000000000" | P2=="AO15018_XXX00000000000000000")
+best_crosses_gebv_real %>% filter(P1=="AO15011_XXX00000000000000000" | P2=="AO15011_XXX00000000000000000")
+best_crosses_logw_real %>% filter(P1=="AO15011_XXX00000000000000000" | P2=="AO15011_XXX00000000000000000")
+best_crosses_logw_real %>% filter(P1=="AO15011_XXX00000000000000000" | P2=="AO15011_XXX00000000000000000")
+# test Dmin=10 ?
+
+best_crosses_logw_real %>% inner_join(crosses, by=c("P1","P2")) %>%
+  summarise(fitness=sum(u*nbprogeny))
+
+best_crosses_gebv_real %>% inner_join(crosses, by=c("P1","P2")) %>%
+  summarise(fitness=sum(u*nbprogeny))
+
+```
+

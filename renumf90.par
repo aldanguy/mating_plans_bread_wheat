@@ -1,0 +1,27 @@
+DATAFILE
+/work/adanguy/blupf90/blues/blues.txt #datafile
+TRAITS
+2
+FIELDS_PASSED TO OUTPUT
+
+WEIGHT(S)
+
+RESIDUAL_VARIANCE
+10 #residual_variance
+EFFECT           
+1 cross alpha
+RANDOM           
+animal
+SNP_FILE
+/work/adanguy/blupf90/snp/snp.txt #snpfile
+(CO)VARIANCES
+10 #genetic_variance
+OPTION AlphaBeta 0.999999 0.000001
+OPTION tunedG 0
+OPTION saveGInverse
+OPTION saveA22Inverse
+OPTION map_file /work/adanguy/blupf90/map/map.txt #mapfile
+OPTION weightedG /work/adanguy/blupf90/weights/weights.txt #weightsfile
+OPTION EM-REML 5000
+OPTION alpha_size 30
+OPTION remove_all_missing
