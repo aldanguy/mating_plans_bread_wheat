@@ -2,6 +2,7 @@
 #SBATCH -o /work/adanguy/these/croisements/scripts/pipeline_cr.out
 #SBATCH -J first
 #SBATCH --time=00:10:00
+RANDOM=1
 
 
 ################################# Etape 1 : repositories

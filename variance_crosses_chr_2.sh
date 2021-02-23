@@ -1,4 +1,5 @@
 #!/bin/bash
+RANDOM=1
 
 
 
@@ -17,8 +18,8 @@ chr=${3}
 
 # Inputs
 # chr=${3}
-titre_markers_filtered_subset_estimated=${r_value_crosses}markers_filtered_subset_estimated.txt
-titre_genotyping_matrix_filtered_imputed_subset=${r_value_crosses}genotyping_matrix_filtered_imputed_subset.txt
+titre_markers_filtered_subset_estimated=${r_value_crosses}markers_estimated_qtls_estimated.txt
+titre_genotyping_matrix_filtered_imputed_subset=${r_prepare}genotyping_matrix_filtered_imputed.txt
 titre_lines=${r_prepare}lines.txt
 titre_function_calcul_index_variance_crosses=${r_scripts}calcul_index_variance_crosses.R
 # nbcores=${2}
@@ -39,6 +40,6 @@ v8=${r_value_crosses_variance_crosses_chr_big_matrix}
 
 rm ${r_value_crosses_variance_crosses_chr_big_matrix}*_${chr}*
 
-Rscript ${r_scripts}variance_crosses_chr.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8}
+Rscript ${r_scripts}variance_crosses_chr_2.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8}
     
 rm ${r_value_crosses_variance_crosses_chr_big_matrix}*_${chr}*

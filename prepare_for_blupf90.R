@@ -36,19 +36,25 @@ titre_weights_for_blupf90 <- variables[7]
 subset = variables[8]
 titre_function_sort_genotyping_matrix = variables[9]
 population <- variables[10]
-
+simulation <- variables[11]
+run <- as.numeric(variables[12])
+h2 <- as.numeric(variables[13])
 
  
-#  titre_lines <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"                                          
-#  titre_markers_filetred_subset <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/markers_filtered_qtls.txt"                  
-#  titre_genotyping_matrix_filtered_imputed_subset <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/genotyping_matrix_filtered_imputed_subset.txt"
-#  titre_phenotyping_data_blupf90 <-  "/work/adanguy/blupf90/blues/blues.txt"                                                                         
-#  titre_map_for_blupf90 <-  "/work/adanguy/blupf90/map/map.txt"                                                                             
-#  titre_genotyping_matrix_for_blupf90 <- "/work/adanguy/blupf90/snp/snp.txt"                                                                             
-#  titre_weights_for_blupf90 <- "/work/adanguy/blupf90/weights/weights.txt" 
-#  subset <- "1"
-#  titre_function_sort_genotyping_matrix="/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"
-# population <- "WE"
+# titre_lines <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/lines_estimated_qtls.txt"        
+# titre_markers_filetred_subset <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/markers_filtered.txt"                  
+# titre_genotyping_matrix_filtered_imputed_subset <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/genotyping_matrix_filtered_imputed.txt"
+# titre_phenotyping_data_blupf90 <- "/work/adanguy/blupf90/pheno/p10TRUE01.txt"                                                        
+# titre_map_for_blupf90 <- "/work/adanguy/blupf90/map/m10TRUE01.txt"                                                          
+# titre_genotyping_matrix_for_blupf90 <-  "/work/adanguy/blupf90/snp/s10TRUE01.txt"                                                          
+# titre_weights_for_blupf90 <-  "/work/adanguy/blupf90/weights/w10TRUE01.txt"                                                      
+# subset = "10"                                                                                               
+# titre_function_sort_genotyping_matrix ="/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"                                 
+# population <-  "WE"                                                                                               
+# simulation <- "TRUE"                                                                                             
+# run <- 1                                                                                               
+# generation <- 0                                                                                               
+# h2 <- 0.25
 
 
 
@@ -88,10 +94,23 @@ genotyping_matrix_imputed[1:10,1:10]
 # dimension: 2089 * 19821
 
 
+if (simulation !="TRUE"){
 
-
-lines2 <- lines %>% filter(used_as_parent==T) %>% dplyr::select(line2, blue) %>%
+lines2 <- lines %>% filter(used_as_parent==T & generation==0) %>%
+  dplyr::select(line2, blue) %>% #add run==0
+  arrange(line2) %>%
   mutate(blue=ifelse(is.na(blue), 0, blue))
+
+} else if (simulation =="TRUE") {
+  
+  lines2 <- lines %>% filter(used_as_parent==T & generation==0 ) %>% 
+    dplyr::select(one_of("line2",  paste0("blue_qr_",subset,"cm_h",h2,"_r",run))) %>%
+    arrange(line2) %>%
+    rename(blue:=!!paste0("blue_qr_",subset,"cm_h",h2,"_r",run)) %>%
+    mutate(blue=ifelse(is.na(blue), 0, blue))
+  
+  
+}
 
 markers  <- markers %>% arrange(chr, pos, marker)
 colonne_markers <- colnames(markers)[grep(population,colnames(markers))]

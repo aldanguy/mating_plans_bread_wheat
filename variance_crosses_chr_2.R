@@ -42,17 +42,19 @@ titre_function_calcul_index_variance_crosses <- variables[5]
 nbcores <- as.numeric(variables[6])
 titre_variance_crosses_chr <- variables[7]
 r_big_files <- variables[8]
-nbrun <- as.numeric(variables[9])
 
-# 
-# chr <- "1A"                                                                                  
-# titre_markers_filtered_subset_estimated <- "/work/adanguy/these/croisements/180121/markers_filtered_subset_estimated.txt"        
-# titre_genotyping_matrix_filtered_imputated_subset <- "/work/adanguy/these/croisements/180121/genotyping_matrix_filtered_imputed_subset.txt"
-# titre_lines <- "/work/adanguy/these/croisements/180121/lines.txt"                                    
-# titre_function_calcul_index_variance_crosses <- "/work/adanguy/these/croisements/scripts/calcul_index_variance_crosses.R"             
-# nbcores <-2                                                                                
-# titre_variance_crosses_chr <- "/work/adanguy/these/croisements/180121/variance_crosses_chr/variance_crosses_1A.txt" 
-# r_big_files <-  "/work2/genphyse/dynagen/adanguy/croisements/big_files/"   
+
+# chr <- "1A"                                                                                                            
+# titre_markers_filtered_subset_estimated <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/markers_estimated_qtls_estimated.txt"        
+# titre_genotyping_matrix_filtered_imputated_subset <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/genotyping_matrix_filtered_imputed.txt"
+# titre_lines <-"/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"                                          
+# titre_function_calcul_index_variance_crosses <- "/work/adanguy/these/croisements/scripts/calcul_index_variance_crosses.R"                                       
+# nbcores <- 1                                                                                                         
+# titre_variance_crosses_chr <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/variance_crosses_chr/variance_crosses_1A.txt" 
+# r_big_files <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/variance_crosses_chr/big_matrix/"  
+# population <- "WE"
+# effect="qe_allcm_h0.8_r1"
+
 
 backingfile1 <- paste0(r_big_files, "big_matrix_1_",chr)
 backingfile2 <- paste0(r_big_files, "big_matrix_2_",chr)
@@ -144,7 +146,6 @@ nmark_chr=length(colonnes_geno_chr)
 
 
 #### vcov
-
 
 calcul_variance_crosses_chr <- function(population, effect){
   
@@ -301,13 +302,13 @@ calcul_variance_crosses_chr <- function(population, effect){
   # output
   # tab <- cbind(crosses_names[1:maxi,], sd) %>%
   #   mutate(chr=chr)
-  
-  tab[,paste0("sd_", population)] <- sd
+  name=paste0("sd_", population,"_", effect)
+  tab[,name] <- sd
   
   output <- tab %>%
     mutate(chr=chr) %>%
     arrange(P1, P2) %>%
-    dplyr::select(sd) %>%
+    dplyr::select(one_of(name)) %>%
     unlist() %>%
     as.vector()
   
@@ -318,6 +319,7 @@ calcul_variance_crosses_chr <- function(population, effect){
 }
 
 
+lines_to_keep <- calcul1(nind)
 
 suppressWarnings(crosses_names <-  expand.grid(unlist(liste_lines[1:nind]),
                                                unlist(liste_lines[1:nind])) %>%
@@ -336,7 +338,7 @@ tab <- data.frame(P1=crosses_names$P1, P2=crosses_names$P2, chr=chr)
 
 
 populations <- gsub("dcum_","",colnames(markers)[grep("dcum", colnames(markers))])
-effects <- colnames(markers)[grep("q", colnames(markers))]
+effects <- sort(colnames(markers)[grep("q", colnames(markers))])
 
 for (population in populations){
   

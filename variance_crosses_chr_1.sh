@@ -1,9 +1,11 @@
 #!/bin/bash
+RANDOM=1
 
 
 
 
 base=${1}
+nbcores=${2}
 
 
 source ${base}

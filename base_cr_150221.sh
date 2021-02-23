@@ -1,4 +1,5 @@
 #!/bin/bash
+RANDOM=1
 
 
 
@@ -184,6 +185,50 @@ Kmin=0
 Cmax=250
 Cmax=10000
 
-nb_run=3
+nb_run=10
 
 cm=(all 0.1 1 10)
+cm=(all 10)
+
+heritability=(0.25 0.8)
+
+
+
+
+
+function paste_columns {
+    
+    motif=${1}
+    file_input=${2}
+    file_output=${3}
+    
+    
+
+    
+    if [ -f ${file_output} ] 
+        then
+        already_present=$(head -n1 ${file_output} | sed "s/\t/\n/g" | grep -n ${motif} | wc -l )
+        if [ ${already_present} -eq 0 ]
+            then 
+            echo "add ${motif}"
+            file_temp1=${file_input}temp1.txt
+            file_temp2=${file_input}temp2.txt
+            colonnes=$(head -n1 ${file_input} | sed "s/\t/\n/g" | grep -n ${motif} | cut -f1 -d":" | sort)
+            for c in ${colonnes[*]}
+                do 
+                cut ${file_input} -f${c} > ${file_temp1}
+                paste -d'\t' ${file_output} ${file_temp1} > ${file_temp2}
+                cp ${file_temp2} ${file_output}
+            done
+            rm ${file_temp1}
+            rm ${file_temp2}
+        fi
+    else 
+        cat ${file_input} > ${file_output}
+        echo "add ${motif}"
+    fi
+}
+
+
+
+

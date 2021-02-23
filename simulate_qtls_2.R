@@ -27,14 +27,17 @@ nbrun <- as.numeric(variables[5])
 subset <- variables[6]
 titre_markers_output <- variables[7]
 titre_lines_output <- variables[8]
+h2 <- as.numeric(variables[9])
 
-# titre_markers <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/markers_filtered.txt"                  
-# titre_genotyping_matrix <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/genotyping_matrix_filtered_imputed.txt"
-# titre_lines <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"                             
-# population <-  "WE"                                                                                               
-# nbrun <-3                                                                                               
-# subset <-  "all"                                                                                              
-# titre_output <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/markers_filtered_qtls_all.txt" 
+  # titre_markers <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/markers_estimated.txt"           
+  # titre_genotyping_matrix <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/genotyping_matrix_filtered_imputed.txt"
+  # titre_lines <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/lines_estimated.txt"             
+  # population <-  "WE"    
+  # nbrun <- 3
+  # subset <- "all"                                                                                                
+  # titre_markers_output <-"/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/markers_estimated_qtls_1cm.txt"  
+  # titre_lines_output <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/lines_estimated_qtls_1cm.txt" 
+  # h2 <- 0.25
 
 cat("\n\n INPUT : markers with physical position \n\n")
 markers <- fread(titre_markers)
@@ -59,21 +62,29 @@ geno[1:10,1:10]
 # column 2 - 19751 = genotype at each SNP
 # dimension: 840 * 19 751
 
+nom_gebv=paste0("gebv_qb_",subset,"cm")
 
-variance_TBV <- lines %>% filter(used_as_parent==T) %>%
-  summarise(v=var(gebv)) %>%
+TBV <- lines %>% filter(used_as_parent==T & generation==0) %>%
+  dplyr::select(one_of(nom_gebv)) %>%
   unlist() %>%
-  as.vector()
+  as.vector() %>%
+  na.omit()
 
+variance_TBV=var(TBV, na.rm = T)
+print(variance_TBV)
+
+
+variance_env=(variance_TBV - h2)/h2
 
 #rm(haplo_1, haplo_2)
 
 
 genetic_map_raw <- fread(titre_markers) %>%
-  arrange(chr, pos)
+  arrange(chr, pos) 
+  
 
-
-genetic_map2 <- genetic_map_raw
+genetic_map2 <- genetic_map_raw %>%
+  dplyr::select(-matches("qr_","qb_","qe_"))
 
 cM="all"
 simulate_QTL <- function(population, cM, variance_TBV, geno, genetic_map_raw){
@@ -134,22 +145,32 @@ simulate_QTL <- function(population, cM, variance_TBV, geno, genetic_map_raw){
   
 }
 
-for (i in 1:nbrun) {
+for (run in 1:nbrun) {
   
+  nom_TBV=paste0("tbv_qr_",subset,"cm_r",run)
+  nom_blue=paste0("blue_qr_",subset,"cm_h",h2,"_r",run)
+  nom_mkr= paste0("qr_",subset,"cm_r",run)
   
   effects = simulate_QTL(variance_TBV=variance_TBV, cM=subset, population=population, geno = geno, genetic_map_raw =genetic_map_raw)
   
   genetic_map2 <- cbind(genetic_map2, effects=effects)
   
-  colnames(genetic_map2) <- c(colnames(genetic_map2)[-ncol(genetic_map2)], paste0("qs_",subset,"cm_",i))
+  colnames(genetic_map2) <- c(colnames(genetic_map2)[-ncol(genetic_map2)], nom_mkr)
   
   
-  parental_gebv <- data.frame(line2=geno[,1], parental_gebv=crossprod(t(geno[,-1]), as.matrix(effects)))
+  parental_tbv <- data.frame(line2=geno[,1], parental_tbv=crossprod(t(geno[,-1]), as.matrix(effects)))
   
-  lines <- lines %>% dplyr::select(-one_of('gebv', paste0("gebv_qs_",subset,"cm_",i))) %>%
-    full_join(parental_gebv, by="line2") %>%
-    rename(!!paste0("gebv_qs_",subset,"cm"):=parental_gebv) %>%
-    arrange(line2)
+
+  
+  lines <- lines %>% dplyr::select(-matches("gebv_qr","blue_qr","tbv_qr")) %>%
+    full_join(parental_tbv, by="line2") %>%
+    arrange(line2) %>%
+    rowwise() %>%
+    mutate(blue2=parental_tbv + rnorm(1, m=0, sd=sqrt(variance_env))) %>%
+  rename(!!nom_TBV:=parental_tbv) %>%
+    rename(!!nom_blue:=blue2)  %>%
+    as.data.frame() %>%
+    dplyr::select(everything(), starts_with("tbv"), starts_with("gebv"), starts_with("blue"))
     
 
 }
