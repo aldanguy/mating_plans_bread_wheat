@@ -38,165 +38,110 @@ cat("\n\n")
 
 
 
-titre_markers_filtered_subset_estimated <- variables[1]
-titre_best_crosses <- variables[2]
-titre_haplotypes_critere <- variables[3] # ouput but input at t>1
-D <- as.numeric(variables[4])
-generation <- as.numeric(variables[5])
-run <- as.numeric(variables[6])
-nb_run_generation <- as.numeric(variables[7])
-titre_genotypes_blupf90_critere <- variables[8]
-titre_genotypes_critere <- variables[9] # output
-titre_pedigree_critere <- variables[10] # output
-titre_function_sort_genotyping_matrix <- variables[11]
-nbcores <- as.numeric(variables[12])
-population <- variables[13]
-critere <- variables[14]
-titre_genotyping_matrix_filtered_imputed_subset <- variables[15] #only useful at t1
-titre_pedigree <- variables[16] # only useful at t1
+titre_markers_input <- variables[1]
+titre_best_crosses_input <- variables[2]
+titre_haplo_input <- variables[3]
+titre_snp_effects_input  <- variables[4]
+titre_function_sort_genotyping_matrix <- variables[5]
+nbcores <- as.numeric(variables[6])
+D <- as.numeric(variables[7])
+generation <- as.numeric(variables[8])
+type <- variables[9]
+population_ref <- variables[10]
+critere <- variables[11]
+affixe <- variables[12]
+rr <-as.numeric(variables[13])
+titre_genotypes_blupf90_output <- variables[14]
+titre_genotypes_output <- variables[15] # output
+titre_pedigree_output <- variables[16] # output
+population_variance <- variables[17]
+
+# titre_markers_input <-"/work2/genphyse/dynagen/adanguy/croisements/050321/value_crosses/markers_estimated_simTRUE_20cm_r8_WE.txt"                    
+# titre_best_crosses_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/best_crosses/best_crosses_g1_simTRUE_20cm_r8_WE_logw_simple.txt"           
+# titre_haplo_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/best_crosses/haplotypes/haplotypes_g1_simTRUE_20cm_r8_WE_logw_simple.txt"  
+# titre_snp_effects_input  <-  "/work2/genphyse/dynagen/adanguy/croisements/050321/value_crosses/simTRUE_20cm_r8/snp_sol_simTRUE_20cm_r8.txt"                 
+# titre_function_sort_genotyping_matrix <-  "/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"                                                             
+# nbcores <- 2                                                                                                                            
+# D <- 10000                                                                                                                       
+# generation <-2                                                                                                                           
+# type <- "marker_simTRUE_20cm_r8"                                                                                                       
+# population_ref <- "WE"                                                                                                                           
+# critere <- "logw"                                                                                                                         
+# affixe <- "simple"                                                                                                                       
+# rr <- 1                                                                                                                            
+# titre_genotypes_blupf90_output <- "/work2/genphyse/dynagen/adanguy/croisements/050321/best_crosses/g2_simTRUE_20cm_r8_WE_logw_simple_rr1/temp/g.txt"             
+# titre_genotypes_output <-  "/work2/genphyse/dynagen/adanguy/croisements/050321/best_crosses/genotypes/genotypes_g2_simTRUE_20cm_r8_WE_logw_simple_rr1.txt"
+# titre_pedigree_output <-  "/work2/genphyse/dynagen/adanguy/croisements/050321/best_crosses/pedigree/pedigree_g2_simTRUE_20cm_r8_WE_logw_simple_rr1.txt"  
+# population_variance <- "WE" 
 
 
-
- 
-  # titre_markers_filtered_subset_estimated <- "/work/adanguy/these/croisements/050221/markers_filtered_subset_estimated.txt"               
-  # titre_best_crosses <- "/work/adanguy/these/croisements/050221/sd_predictions/subset_crosses.txt"                   
-  # titre_haplotypes_critere <- "/work/adanguy/these/croisements/050221/sd_predictions/haplotypes_sd_predictions_g1_run1.txt"
-  # D <- 10000
-  # generation <- 1
-  # run <- 1                                                                                          
-  # nb_run_generation <- 10                                                                                        
-  # titre_genotypes_blupf90_critere <- "/work/adanguy/blupf90/snp/sd_predictions_g1_run1.txt"                                       
-  # titre_genotypes_critere <-  "/work/adanguy/these/croisements/050221/sd_predictions/genotyping_sd_predictions_g1_run1.txt"
-  # titre_pedigree_critere <-"/work/adanguy/these/croisements/050221/sd_predictions/pedigree_sd_predictions_g1_run1.txt"  
-  # titre_function_sort_genotyping_matrix <- "/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"                           
-  # titre_genotyping_matrix_filtered_imputed_subset <- "/work/adanguy/these/croisements/050221/genotyping_matrix_filtered_imputed_subset.txt"       
-  # titre_pedigree <-  "/work/adanguy/these/croisements/050221/pedigree.txt"  
-
-start_seed=run*generation
-set.seed(start_seed)
-source(titre_function_sort_genotyping_matrix)
-
-cat("\n\n INPUT : genetic map \n\n ")
-head(fread(titre_markers_filtered_subset_estimated))
-# warning : marker order/number should respect marker order/number of genotyping matrix
-# column 1 = chr = chromosome letter ID (string, 21 levels)
-# column 3 = pos = physical position of marker (pb) (integer)
-# column 4 = marker = marker ID (string, as many levels as number of markers)
-# column 5 = dcum = cumulated genetic distance on the chromosome (cM) (numeric)
-# column 3 = no importance here
-
+cat("\n\n INPUT : markers info \n\n ")
+genetic_map <- fread(titre_markers_input)
+head(genetic_map)
+tail(genetic_map)
+dim(genetic_map)
 
 
 cat("\n\n INPUT : best crosses \n\n ")
-best_crosses <- fread(titre_best_crosses)
-head(best_crosses)
+fread(titre_best_crosses_input) %>% head()
+fread(titre_best_crosses_input) %>% tail()
+fread(titre_best_crosses_input) %>% dim()
+best_crosses <- fread(titre_best_crosses_input) %>%
+  filter(nbprogeny>0) 
 
 
 
-best_crosses <- best_crosses%>%
-  filter(nbprogeny>0) %>%
-  filter(generation==generation)
-
-
-if (!is.na(unique(best_crosses$run))){
-  
-  best_crosses <- best_crosses %>% filter(run==run)
-  
-}
-
-
-liste_lines <- best_crosses %>% dplyr::select(P1, P2) %>% unlist() %>% as.vector() %>% unique() %>% sort()
+cat("\n\n INPUT : genotyping \n\n")
+haplotypes <- fread(titre_haplo_input)
+haplotypes %>% select(1:10) %>% slice(1:10)
+haplotypes %>% select(1:10) %>% slice((nrow(.)-10):nrow(.))
+haplotypes %>% dim()
 
 
 
+start_seed=rr*generation
+set.seed(start_seed)
+source(titre_function_sort_genotyping_matrix)
 
-if (generation ==1 & run==1){ # conversion of genotyping matrix into haplotypes matrix 
-  
 
-  cat("\n\n INPUT : pedigree \n\n ")
-  pedigree <- fread(titre_pedigree) %>%
-    arrange(generation, P1, P2) %>%
-    mutate(run=NA) %>%
-    mutate(best_crosses=NA) %>%
-    as.data.frame()
-  
-  print(head(pedigree))
-  
-  
-  
-  
-  cat("\n\n INPUT : genotyping matrix of parents \n\n ")
-  # warning : no tolerance for missing values
-  # column 1 = line2 = modified ID of variety (string, as many levels as number of parents)
-  # column 2 - 19751 : genotypes at marker AX-... (as many columns as number of markers +1 ), genotypes = 0 homozygote reference allele, 1, 2 alternativ allele (integer)
-  print(fread(titre_genotyping_matrix_filtered_imputed_subset)[1:10,1:10])
-  
-  genotyping_matrix_parents <- fread(titre_genotyping_matrix_filtered_imputed_subset) %>%
-    rename(ID=line2) %>% 
-    arrange(ID) %>%
-    mutate(run=NA) %>%
-    dplyr::select(ID, run, starts_with("AX"))
-  
-  write_delim(genotyping_matrix_parents, titre_genotypes_critere, delim = "\t", na = "NA", append = F,  col_names = T, quote_escape = "none")
-  # save files
-  write_delim(pedigree, titre_pedigree_critere, delim = "\t", na = "NA", append = F,  col_names = T, quote_escape = "none")
-  rm(genotyping_matrix_parents, pedigree)
-  
-}
 
-if (generation==1){
-  # ID of parental lines
+
+
+if (length(grep("_h",type))>0 | length(grep("FALSE",type)) >0){
   
-  # conversion of parental genotypes to haplotypes
-  # input for MOBPS
-  # if genotype = 2 -> haplo_1 = 1 and haplo_2 = 2 ; genotype = 1 -> haplo_1=0, haplo_2 = 1 ; genotype = 0, haplo_1=0, haplo_2=0
-  haplo_1 <- fread(titre_genotyping_matrix_filtered_imputed_subset) %>% 
-    filter(line2 %in% liste_lines) %>%
-    arrange(line2) %>%
-    rename(ID2=line2)%>%
-    mutate(ID=paste0(ID2,"_haplo1")) 
-  
-  haplo_2 <- fread(titre_genotyping_matrix_filtered_imputed_subset) %>% 
-    filter(line2 %in% liste_lines) %>%
-    arrange(line2) %>%
-    rename(ID2=line2)%>%
-    mutate(ID=paste0(ID2,"_haplo2")) %>%
-    group_by(ID) %>%
-    mutate_at(vars(starts_with("AX")), funs(min(1,.)))  %>% 
-    ungroup() 
-  
-  haplo_2[haplo_1==1] <- 0 # if locus is heterozygote, the sum per locus should be equal to 1
-  
-  haplotypes <- haplo_1  %>%
-    group_by(ID) %>%
-    mutate_at(vars(starts_with("AX")), funs(min(1,.))) %>%
-    ungroup() %>%
-    rbind(.,haplo_2) %>%
-    arrange(ID)  %>% 
-    mutate(run=run) %>%
-    dplyr::select(ID, ID2, run, starts_with("AX")) %>%
-    as.data.frame()
-  
-  rm(haplo_1, haplo_2)
-  cat("\n\n OUPUT : haplotypes \n\n ")
-  write_delim(haplotypes %>% dplyr::select(-ID2), titre_haplotypes_critere, delim = "\t", na = "NA", append = F,  col_names = T, quote_escape = "none")
-  
-  
-  
-} else {
-  
-  haplotypes <- fread(titre_haplotypes_critere) %>%
-    mutate(ID2 = unlist(strsplit(ID, split="_haplo"))[seq(1, nrow(.)*2, 2)]) %>%
-    filter(ID2 %in% liste_lines) %>%
-    arrange(ID) %>% 
-    mutate(run=run) %>%
-    dplyr::select(ID, ID2,  run, starts_with("AX")) 
-  
-  cat("\n\n INPUT : haplotypes \n\n")
+  cat("\n\n INPUT : snp effects from blupf90 \n\n ")
+  fread(titre_snp_effects_input) %>% head() %>% print()
+  fread(titre_snp_effects_input) %>% tail() %>% print()
+  fread(titre_snp_effects_input) %>% dim() %>% print()
+  snp_sol <- fread(titre_snp_effects_input)
 
   
 }
 
+
+
+
+
+
+
+
+liste_lines <- best_crosses %>% arrange(P1, P2) %>%
+  dplyr::select(P1, P2) %>% unlist() %>% as.vector() %>% unique() %>% sort()
+
+
+
+genetic_map <- genetic_map %>%
+  arrange(chr, pos, marker, population, type) %>%
+  filter(population==!!population_variance) %>%
+  filter(type==!!type) %>%
+  mutate(dcum=dcum/1e2) %>%
+  mutate(chr2=as.numeric(as.factor(chr)))
+
+
+
+
+haplotypes <- haplotypes %>% filter(ID %in% liste_lines) %>%
+  arrange(ID, haplo)
 
 
 
@@ -206,8 +151,8 @@ if (generation==1){
 
 
 liste_lines2 <- haplotypes %>% #to have order of parents in haplotypes
-  dplyr::select(ID2) %>%
-  arrange(ID2) %>%
+  dplyr::select(ID) %>%
+  arrange(ID) %>%
   unlist() %>%
   as.vector() %>%
   unique()
@@ -219,28 +164,21 @@ liste_lines2 <- haplotypes %>% #to have order of parents in haplotypes
 
 
 
-genetic_map <- fread(titre_markers_filtered_subset_estimated) %>%
-  arrange(chr, pos) %>%
-  mutate(chr2=as.numeric(as.factor(chr))) %>%
-  mutate(dcum_WE=dcum_WE/1e2) %>%
-  mutate(dcum_EE=dcum_EE/1e2) %>%
-  mutate(dcum_WA=dcum_WA/1e2) %>%
-  mutate(dcum_EA=dcum_EA/1e2) %>%
-  mutate(dcum_CsRe=dcum_CsRe/1e2) # convert to M
 
 
-colonne_genetic_map <- colnames(genetic_map)[grep(population,colnames(genetic_map))]
 
 
-parents <- creating.diploid(dataset = haplotypes%>%
-                              column_to_rownames("ID") %>%
-                              dplyr::select(-ID2, -run) %>%
+
+
+parents <- creating.diploid(dataset = haplotypes %>%
+                              column_to_rownames("haplo") %>%
+                              dplyr::select(-ID) %>%
                               t()    , 
                             sex.quota = F, # all individiuals are considered as males
                             snp.name=genetic_map$marker, 
                             chr.nr=genetic_map$chr2, 
                             bp=genetic_map$pos, 
-                            snp.position = genetic_map[,colonne_genetic_map], 
+                            snp.position = genetic_map$dcum, 
                             name.cohort="Parents",
                             verbose = F) # ignore warnings
 # rm(haplotypes)
@@ -262,10 +200,9 @@ gen2=gen1 # generation from which P2 belongs to
 
 i=1
 progeny_genotypes <- data.frame()
-progeny_haplotypes <- data.frame()
 for ( i in 1:nrow(best_crosses)){
   
-  print(i)
+  #print(i)
   
   
   
@@ -300,12 +237,12 @@ for ( i in 1:nrow(best_crosses)){
   if( i == 1){
     
     progeny_genotypes <- get.geno(dh, cohorts = "DH")
-    progeny_haplotypes <- get.haplo(dh, cohorts = "DH")
+    #progeny_haplotypes <- get.haplo(dh, cohorts = "DH")
     
   } else {
     
     progeny_genotypes <- cbind(progeny_genotypes, get.geno(dh, cohorts = "DH"))
-    progeny_haplotypes <- cbind(progeny_haplotypes, get.haplo(dh, cohorts = "DH"))
+    #progeny_haplotypes <- cbind(progeny_haplotypes, get.haplo(dh, cohorts = "DH"))
     
     
   }
@@ -324,60 +261,73 @@ for ( i in 1:nrow(best_crosses)){
 }
 
 
+#initial <- ((generation -1)*nb_run_generation+(rr-1))*D +1
 
-initial <- ((generation -1)*nb_run_generation+(run-1))*D +1
-progeny_names = paste0("progeny_",gsub("\\s", "0", format(initial:(initial+sum(best_crosses$nbprogeny) -1), width=max(nchar(liste_lines)) - nchar("progeny") -1)))
+initial <- (generation -2)*D +1
+
+progeny_names = paste0("progeny_",gsub("\\s", "0", format(initial:(initial+D -1), width=max(nchar(liste_lines)) - nchar("progeny") -1)))
 P1=as.vector(unlist(sapply(1:nrow(best_crosses), function(x) rep(best_crosses$P1[x], times= best_crosses$nbprogeny[x] ))))
 P2=as.vector(unlist(sapply(1:nrow(best_crosses), function(x) rep(best_crosses$P2[x], times= best_crosses$nbprogeny[x] ))))
-pedigree <- data.frame(ID=progeny_names, P1=P1, P2=P2, generation=generation, run=run, best_crosses=critere)
+
+pedigree <- data.frame(ID=progeny_names, generation=generation, type=type, population=population_ref, critere=critere, affixe=affixe, rr=rr, P1=P1, P2=P2)
+
 
 
 
 progeny_genotypes <- t(progeny_genotypes) %>% 
   as.data.frame() %>%
-  mutate(ID=progeny_names) %>%
-  mutate(run=run) %>%
-  dplyr::select(ID, run, starts_with("AX")) %>%
-  as.data.frame()
-
-progeny_genotypes <- sort_genotyping_matrix(progeny_genotypes, genetic_map)
-
-
-progeny_genotypes_bluf90 <- progeny_genotypes %>%
-  unite(SNP, starts_with("AX"), sep="")%>%
-  dplyr::select(ID, SNP) %>%
+  mutate(ID=!!progeny_names) %>%
+  mutate(generation=!!generation) %>%
+  mutate(type=!!type, population=!!population_ref, critere=!!critere, affixe=!!affixe, rr=!!rr) %>%
+  dplyr::select(ID, generation, type, population, critere, affixe, rr, starts_with("AX")) %>%
+  arrange(ID) %>%
   as.data.frame()
 
 
 
-progeny_haplotypes <- t(progeny_haplotypes) %>% 
-  as.data.frame() %>%
-  mutate(ID=paste0(rep(progeny_names, each=2),"_haplo", 1:2)) %>%
-  mutate(run=run) %>%
-  dplyr::select(ID, run, starts_with("AX")) %>%
-  as.data.frame()
+# 
+# progeny_haplotypes <- t(progeny_haplotypes) %>% 
+#   as.data.frame() %>%
+#   mutate(ID=paste0(rep(progeny_names, each=2),"_haplo", 1:2)) %>%
+#   mutate(run=run) %>%
+#   dplyr::select(ID, run, starts_with("AX")) %>%
+#   as.data.frame()
+# 
+# progeny_haplotypes <- sort_genotyping_matrix(progeny_haplotypes, genetic_map)
 
-progeny_haplotypes <- sort_genotyping_matrix(progeny_haplotypes, genetic_map)
+progeny_genotypes <- sort_genotyping_matrix(progeny_genotypes, genetic_map %>% dplyr::select(chr, pos, marker) %>% unique())
+
+if (length(grep("_h",type))>0 | length(grep("FALSE",type))){
+  
+  progeny_genotypes2 <- sort_genotyping_matrix(progeny_genotypes, genetic_map %>% inner_join(fread(titre_snp_effects_input), by=c("chr2"="chr", "pos")) %>% dplyr::select(chr, pos, marker))
+  
+  progeny_genotypes_bluf90 <- progeny_genotypes2 %>%
+    dplyr::select(ID, starts_with("AX")) %>%
+    unite(SNP, starts_with("AX"), sep="")%>%
+    dplyr::select(ID, SNP) %>%
+    as.data.frame()
+  
+  cat("\n\n OUPUT : genotyping data for BLUPF90 \n\n")
+  print(dim(progeny_genotypes_bluf90))
+  print(nchar(progeny_genotypes_bluf90[1,2]))
+  write_delim(progeny_genotypes_bluf90, titre_genotypes_blupf90_output, delim = " ", na = "NA", append = F,  col_names = F, quote_escape = "none")
+  
+  
+} 
 
 
-cat("\n\n OUPUT : genotyping data for BLUPF90 \n\n")
-dim(progeny_genotypes_bluf90)
-write_delim(progeny_genotypes_bluf90, titre_genotypes_blupf90_critere, delim = " ", na = "NA", append = F,  col_names = F, quote_escape = "none")
 
 cat("\n\n OUPUT : genotyping data \n\n")
-progeny_genotypes[1:2,1:10]
-dim(progeny_genotypes)
-write_delim(progeny_genotypes, titre_genotypes_critere, delim = "\t", na = "NA", append = T,  col_names = F, quote_escape = "none")
+progeny_genotypes%>% select(1:10) %>% slice(1:10)
+progeny_genotypes %>% select(1:10) %>% slice((nrow(.)-10):nrow(.))
+progeny_genotypes %>% dim()
+write_delim(progeny_genotypes, titre_genotypes_output, delim = "\t", na = "NA", append = F,  col_names = T, quote_escape = "none")
 
 cat("\n\n OUPUT : pedigree \n\n")
 head(pedigree)
+tail(pedigree)
 dim(pedigree)
-write_delim(pedigree, titre_pedigree_critere, delim = "\t", na = "NA", append = T,  col_names = F, quote_escape = "none")
-
-cat("\n\n OUPUT : haplotypes \n\n")
-progeny_haplotypes[1:2,1:10]
-dim(progeny_haplotypes)
-write_delim(progeny_haplotypes, titre_haplotypes_critere, delim = "\t", na = "NA", append = T,  col_names = F, quote_escape = "none")
+write_delim(pedigree, titre_pedigree_output, delim = "\t", na = "NA", append = F,  col_names = T, quote_escape = "none")
 
 
 

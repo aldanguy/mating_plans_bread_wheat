@@ -1,5 +1,6 @@
 #!/bin/bash
-
+RANDOM=1
+date +'%Y-%m-%d-%T'
 
 
 # Goal: prepare base files for next scripts: rename lines with an equal size ID, estimate BLUE of lines, clean and impute genotyping matrix
@@ -18,12 +19,9 @@
 
 base=${1}
 
+base=/work/adanguy/these/croisements/scripts/base_cr_050321.sh
 
 source ${base}
-
-nbcores=${2}
-
-keep_all=${3}
 
 
 
@@ -34,11 +32,11 @@ keep_all=${3}
 # D=3300
 
 # Output
-titre_selection_intensity=${r_prepare}selection_intensity.txt # output
+titre_selection_intensity_output=${r_prepare}selection_intensity.txt # output
 
 # Variables
 v1=${D}
-v2=${titre_selection_intensity}
+v2=${titre_selection_intensity_output}
 
 # Script
 Rscript ${r_scripts}selection_intensity.R ${v1} ${v2}
@@ -48,16 +46,16 @@ Rscript ${r_scripts}selection_intensity.R ${v1} ${v2}
 # compute expected mean of higher statistics 
 
 # Inputs
-# d=3300
-# titre_selection_intensity=${r}tab3_selection_intensity.txt # from selection_intensity.R
+# D=3300
+titre_selection_intensity_input=${titre_selection_intensity_output}
 
 # Output
-titre_expected_best_order_statistic=${r_prepare}expected_best_order_statistic.txt 
+titre_expected_best_order_statistic_output=${r_prepare}expected_best_order_statistic.txt 
 
 # Variables
 v1=${D}
-v2=${titre_selection_intensity}
-v3=${titre_expected_best_order_statistic}
+v2=${titre_selection_intensity_input}
+v3=${titre_expected_best_order_statistic_output}
 
 # Script
 Rscript ${r_scripts}order_statistics.R ${v1} ${v2} ${v3}
@@ -66,18 +64,19 @@ Rscript ${r_scripts}order_statistics.R ${v1} ${v2} ${v3}
 # Step 1 : ID of lines
 
 # Inputs
-titre_phenotypes=${r_amont}Traitees_IS.txt
-titre_genotyping_matrix_raw=${r_amont}matrix_nonimput_withoutOTV_names.txt
+titre_phenotypes_input=${r_amont}Traitees_IS.txt
+titre_genotyping_input=${r_amont}matrix_nonimput_withoutOTV_names.txt
 
 # Output
-titre_lines=${r_prepare}lines.txt
-titre_pedigree=${r_prepare}pedigree.txt
+titre_lines_output=${r_prepare}lines_1.txt
+titre_pedigree_output=${r_prepare}pedigree.txt
 
 # Variables
-v1=${titre_phenotypes}
-v2=${titre_genotyping_matrix_raw}
-v3=${titre_lines}
-v4=${titre_pedigree}
+v1=${titre_phenotypes_input}
+v2=${titre_genotyping_input}
+v3=${titre_lines_output}
+v4=${titre_pedigree_output}
+
 
 # Script
 Rscript ${r_scripts}ID.R ${v1} ${v2} ${v3} ${v4}
@@ -89,102 +88,130 @@ module purge
 module load system/R-3.4.3_bis
 
 # Inputs
-# titre_phenotypes=${r_amont}Traitees_IS.txt
-# titre_lines=${r}lines.txt from ID.R
+# titre_phenotypes_input=${r_amont}Traitees_IS.txt
+titre_lines_input=${titre_lines_output}
 
 # Output
-# titre_lines=${r}lines.txt
+titre_lines_output=${r_prepare}lines_2.txt
 
 # Variables
-v1=${titre_phenotypes}
-v2=${titre_lines}
+v1=${titre_phenotypes_input}
+v2=${titre_lines_input}
+v3=${titre_lines_output}
 
 # Script
-Rscript ${r_scripts}blues.R ${v1} ${v2} # use of asreml
+Rscript ${r_scripts}blues.R ${v1} ${v2} ${v3} # use of asreml
+
+
+
 
 #############################
 # Step 3 : filter genotyping matrix
 source ${base}
 
 # Inputs
-# titre_genotyping_matrix_raw=${r_amont}matrix_nonimput_withoutOTV_names.txt
-# titre_lines=${r}lines.txt # from blues.R
-# keep_all=${3}
+# titre_genotyping_input=${r_amont}matrix_nonimput_withoutOTV_names.txt
+titre_lines_input=${r_prepare}lines_2.txt # from blues.R
+#keep_all=${3}
 
 # outputs
 # titre_lines=${r}lines.txt
-titre_genotyping_matrix_filtered=${r_prepare}genotyping_matrix_filtered.txt
+titre_genotyping_output=${r_prepare}genotyping_1.txt
+titre_lines_output=${r_prepare}lines.txt 
+
 
 # Variables
-v1=${titre_genotyping_matrix_raw}
-v2=${titre_lines}
-v3=${titre_genotyping_matrix_filtered}
-v4=${keep_all}
+v1=${titre_genotyping_input}
+v2=${titre_lines_input}
+v3=${keep_all}
+v4=${titre_genotyping_output}
+v5=${titre_lines_output}
 
 # Script
-Rscript ${r_scripts}filtering_genotyping_matrix.R ${v1} ${v2} ${v3} ${v4}
+Rscript ${r_scripts}filtering_genotyping_matrix.R ${v1} ${v2} ${v3} ${v4} ${v5}
 
 #############################
 # Step 4 : physical position of markers (skipped)
 
 # Inputs
-titre_physical_position_markers=${r_amont}Vraies_positions_marqueurs.txt # private data
-titre_correspondance_chr=${r_amont}Codes_chr.txt
-titre_chr_regions=${r_amont}Decoupage_chr_ble.tab
+titre_physical_position_markers_input=${r_amont}Vraies_positions_marqueurs.txt # private data
+titre_correspondance_chr_input=${r_amont}Codes_chr.txt
+titre_chr_regions_input=${r_amont}Decoupage_chr_ble.tab
 # titre_genotyping_matrix_raw=${r_amont}matrix_nonimput_withoutOTV_names.txt
 
 # Output
-titre_markers_filtered=${r_prepare}markers_filtered.txt # no longer include private data
+titre_markers_ouput=${r_prepare}markers_1.txt # no longer include private data
+titre_genotyping_input=${titre_genotyping_output}
 
 # Variables
-v1=${titre_physical_position_markers}
-v2=${titre_correspondance_chr}
-v3=${titre_chr_regions}
-v4=${titre_genotyping_matrix_filtered}
-v5=${titre_markers_filtered}
+v1=${titre_physical_position_markers_input}
+v2=${titre_correspondance_chr_input}
+v3=${titre_chr_regions_input}
+v4=${titre_genotyping_input}
+v5=${titre_markers_ouput}
 
 # Script
 Rscript ${r_scripts}markers.R ${v1} ${v2} ${v3} ${v4} ${v5}
+
+
 
 
 #############################
 # choose a genetic map
 
 # Input
-titre_genetic_maps_initial=${r_amont}supplementary_file_3_recombination_maps.txt # from Danguy des Déserts et al.
+titre_genetic_maps_input=${r_amont}supplementary_file_3_recombination_maps.txt # from Danguy des Déserts et al.
 
 # Output
-titre_genetic_map=${r_prepare}genetic_map
+titre_genetic_map_temp_output=${r_prepare}genetic_map
 
 # Variables
-v1=${titre_genetic_maps_initial}
-v2=${titre_genetic_map}
+v1=${titre_genetic_maps_input}
+v2=${titre_genetic_map_temp_output}
 
 # Script
 Rscript ${r_scripts}prepare_genetic_map.R ${v1} ${v2}
-
 
 #############################
 # estimation of genetic position of a set of markers based on a genetic map
 
 # Inputs
 
-titre_genetic_map_WE=${r_prepare}genetic_map_WE.txt
-titre_genetic_map_EE=${r_prepare}genetic_map_EE.txt
-titre_genetic_map_WA=${r_prepare}genetic_map_WA.txt
-titre_genetic_map_EA=${r_prepare}genetic_map_EA.txt
-titre_genetic_map_CsRe=${r_prepare}genetic_map_CsRe.txt
-# titre_markers=${r_prepare}markers_filtered.txt
+k=0
+for population in ${populations[*]}
+    do
 
-v1=${titre_genetic_map_WE}
-v2=${titre_genetic_map_EE}
-v3=${titre_genetic_map_WA}
-v4=${titre_genetic_map_EA}
-v5=${titre_genetic_map_CsRe}
-v6=${titre_markers_filtered}
+    # input
+    titre_genetic_map_input=${titre_genetic_map_temp_output}_${population}.txt
+    titre_markers_input=${titre_markers_ouput}
+    
+    # output
+    titre_markers_output=${r_prepare}markers_2_${population}.txt
 
-# Script
-Rscript ${r_scripts}interpolation_genetic_positions.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6}
+    v1=${titre_genetic_map_input}
+    v2=${titre_markers_input}
+    v3=${population}
+    v4=${titre_markers_output}
+
+    # Script
+    Rscript ${r_scripts}interpolation_genetic_positions.R ${v1} ${v2} ${v3} ${v4}
+
+    if [ ${k} -eq 0 ]
+        then
+
+        cat ${titre_markers_output} > ${r_prepare}markers_2.txt
+        cat ${titre_genetic_map_temp_output}_${population}.txt > ${r_prepare}genetic_map.txt
+    else 
+        tail -n+2 ${titre_markers_output} >> ${r_prepare}markers_2.txt
+        tail -n+2 ${titre_genetic_map_temp_output}_${population}.txt >> ${r_prepare}genetic_map.txt
+
+    fi
+
+    
+    k=$((${k} +1))
+
+
+done
 
 
 
@@ -192,30 +219,38 @@ Rscript ${r_scripts}interpolation_genetic_positions.R ${v1} ${v2} ${v3} ${v4} ${
 # Step 5 : imputation of missing values
 
 # Inputs
-# titre_genotyping_matrix_updated=${r}genotyping_matrix_updated # from filtering_genotyping_matrix.R 
-# titre_markers=${r}markers.txt from order.R 
-# nbcores=${2}
+titre_genotyping_input=${r_prepare}genotyping_1.txt
+titre_markers_input=${r_prepare}markers_2.txt
 titre_function_sort_genotyping_matrix=${r_scripts}sort_genotyping_matrix.R
 
 
 # Output
-titre_genotyping_matrix_filtered_imputed=${r_prepare}genotyping_matrix_filtered_imputed.txt
+titre_genotyping_output=${r_prepare}genotyping.txt
+titre_markers_output=${r_prepare}markers.txt
 
 # Variables
-v1=${titre_genotyping_matrix_filtered}
-v2=${titre_markers_filtered}
-v3=${titre_genotyping_matrix_filtered_imputed}
-v4=${nbcores}
-v5=${titre_function_sort_genotyping_matrix}
+v1=${titre_genotyping_input}
+v2=${titre_markers_input}
+v3=${nbcores}
+v4=${titre_function_sort_genotyping_matrix}
+v5=${titre_genotyping_output}
+v6=${titre_markers_output}
 
 # Script
-Rscript ${r_scripts}imputation.R ${v1} ${v2} ${v3} ${v4} ${v5}
-
-
-
+Rscript ${r_scripts}imputation.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6}
 
 
 
 # At the end, should provide
 # a filtered genotyping matrix with no missing data
 # the physical and genetic positions of markers
+
+
+rm ${r_prepare}lines_*.txt
+rm ${r_prepare}markers_*.txt
+rm ${r_prepare}genotyping_*.txt
+rm ${r_prepare}genetic_map_*.txt
+
+
+date +'%Y-%m-%d-%T'
+

@@ -28,47 +28,57 @@ cat("\n\n")
 
 
 
-titre_genotyping_matrix_updated <- variables[1]
-titre_markers <- variables[2]
-titre_genotyping_matrix_imputed <- variables[3]
-nbcores <- as.numeric(variables[4])
-titre_function_sort_genotyping_matrix <- variables[5]
+titre_genotyping_input <- variables[1]
+titre_markers_input <- variables[2]
+nbcores <- as.numeric(variables[3])
+titre_function_sort_genotyping_matrix <- variables[4]
+titre_genotyping_output <- variables[5]
+titre_markers_output <- variables[6]
 
-# titre_genotyping_matrix_updated <-  "/work/adanguy/these/croisements/090221/genotyping_matrix_filtered.txt"       
-# titre_markers <- "/work/adanguy/these/croisements/amont/markers_filtered.txt"                  
-# # titre_genotyping_matrix_imputed <-  "/work/adanguy/these/croisements/amont/genotyping_matrix_filtered_imputed.txt"
-# # nbcores <- 1
-# titre_function_sort_genotyping_matrix <- "/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"
+# titre_genotyping_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/prepare/genotyping_1.txt"
+# titre_markers_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/prepare/markers_2.txt"   
+# nbcores <- 1                                                                       
+# titre_function_sort_genotyping_matrix <- "/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"           
+# titre_genotyping_output <- "/work2/genphyse/dynagen/adanguy/croisements/050321/prepare/genotyping.txt"  
+# titre_markers_output <- "/work2/genphyse/dynagen/adanguy/croisements/050321/prepare/markers.txt" 
+# 
+
+
 
 source(titre_function_sort_genotyping_matrix)
 
 
-cat("\n\n INPUT : gentyping matrix updated \n\n")
-genotyping_matrix_updated <- fread(titre_genotyping_matrix_updated)
-genotyping_matrix_updated[1:10,1:10]
-dim(genotyping_matrix_updated)
-# column 1 = line 2 = modified ID for variety (string, as many levels as number of lines, i.e. 2089)
-# column 2 - 19751 = genotype at each SNP
-# dimension: 2089 * 19821
+cat("\n\n INPUT : genotyping \n\n")
+fread(titre_genotyping_input) %>% select(1:10) %>% slice(1:10)
+fread(titre_genotyping_input) %>% select(1:10) %>% slice((nrow(.)-10):nrow(.))
+fread(titre_genotyping_input) %>% dim()
 
 
-
-cat("\n\n INPUT : markers with physical position \n\n")
-markers <- fread(titre_markers) %>% arrange(chr, pos)
-head(markers)
-dim(markers)
-# column 1 = chr = chr ID with letters (string, 21 levels)
-# column 2 = region = ID of chr region (string, 5 levels R1, R2a, C, R2b, R3)
-# column 4 = pos = physical position of marker (intergers, units bp)
-# column 5 = marker = marker ID (string, as many levels as number of markers, here 31 314)
-# dimension: 31314*4
+cat("\n\n INPUT : markers info \n\n")
+fread(titre_markers_input) %>% head()
+fread(titre_markers_input) %>% tail()
+fread(titre_markers_input) %>% dim()
 
 
-genotyping_matrix_updated <- sort_genotyping_matrix(genotyping_matrix_updated, markers)
+markers2 <- fread(titre_markers_input) %>%
+  filter(marker %in% colnames(fread(titre_genotyping_input))) %>%
+  arrange(chr, pos, marker, population)
 
-map <- markers %>% dplyr::select(marker, chr, pos) %>%
+
+genotyping_matrix_updated <- sort_genotyping_matrix(fread(titre_genotyping_input), markers2)
+
+map <- markers2 %>% dplyr::select(marker, chr, pos) %>%
+  filter(marker %in% colnames(genotyping_matrix_updated)) %>%
+  mutate(chr=as.numeric(as.factor(chr))) %>%
+  unique() %>%
   arrange(chr, pos) %>%
   column_to_rownames("marker")
+
+
+# to_keep <- sort(sample(1:nrow(map), size=1500, replace=F))
+# to_keep_m <- c(1, to_keep +1)
+# genotyping_matrix_updated <- genotyping_matrix_updated[1:200, to_keep_m]
+# map <- map[to_keep, ]
 
 # markers <- sort(sample(1:ncol(genotyping_matrix_updated), size=20, replace = F))
 # map <- map[markers,]
@@ -80,10 +90,12 @@ m <- genotyping_matrix_updated  %>%
   mutate_at(vars(starts_with("AX")), funs(str_replace_all(., pattern = c("0"), replacement= "AA")))%>%
   mutate_at(vars(starts_with("AX")), funs(str_replace_all(., pattern = c("2"), replacement= "BB")))%>%
   mutate_at(vars(starts_with("AX")), funs(str_replace_all(., pattern = c("1"), replacement= "AB"))) %>%
-  column_to_rownames("line2") %>%
+  column_to_rownames("ID") %>%
   as.matrix()
 
-
+cat("\n\n dimension before imputation\n\n")
+dim(m)
+dim(map)
 
 #m <- matrix(as.character(unlist(m)), ncol=100, byrow=T)
 # m[m=="0"] <- "AA"
@@ -103,23 +115,28 @@ genotyping_matrix_imputed <- codeGeno(m2, impute = T,
                                       cores=nbcores )$geno
 
 genotyping_matrix_imputed <- genotyping_matrix_imputed %>% as.data.frame() %>%
-  rownames_to_column(var="line2") %>%
-  dplyr::select(line2, everything())
+  rownames_to_column(var="ID") %>%
+  dplyr::select(ID, everything())
 
 
-genotyping_matrix_imputed <- sort_genotyping_matrix(genotyping_matrix_imputed, markers)
+genotyping_matrix_imputed <- sort_genotyping_matrix(genotyping_matrix_imputed, markers2)
 
 
 
 
 
 cat("\n\n OUTPUT : gentyping matrix imputed \n\n")
-genotyping_matrix_imputed[1:10,1:10]
-dim(genotyping_matrix_imputed)
-# column 1 = line 2 = modified ID for variety (string, as many levels as number of lines, i.e. 2089)
-# column 2 - 19751 = genotype at each SNP
-# dimension: 2089 * 19821
-write_delim(genotyping_matrix_imputed, titre_genotyping_matrix_imputed, col_names = T, quote_escape="none", delim="\t", na="NA", append=F)
+genotyping_matrix_imputed %>% select(1:10) %>% slice(1:10)
+genotyping_matrix_imputed %>% select(1:10) %>% slice((nrow(.)-10):nrow(.))
+genotyping_matrix_imputed %>% dim()
+write_delim(genotyping_matrix_imputed, titre_genotyping_output, col_names = T, quote_escape="none", delim="\t", na="NA", append=F)
+
+
+cat("\n\n OUTPUT : markers info \n\n")
+head(markers2)
+tail(markers2)
+dim(markers2)
+write_delim(markers2, titre_markers_output, col_names = T, quote_escape="none", delim="\t", na="NA", append=F)
 
 
 sessionInfo()

@@ -1,9 +1,9 @@
 
 
 
-# Goal : prepare markers info
+# Goal : markers info (chr, pos)
 # Input : physical position
-# Output : markers with physical position
+# Output : markers info
 
 
 # warning : this script should be hidden because of private data
@@ -29,11 +29,11 @@ cat("\n\n")
 
 
 
-titre_physical_position_markers <- variables[1]
-titre_correspondance_chr <- variables[2]
-titre_chr_regions <- variables[3]
-titre_genotyping_matrix_filtered <- variables[4]
-titre_markers <- variables[5]
+titre_physical_position_markers_input <- variables[1]
+titre_correspondance_chr_input <- variables[2]
+titre_chr_regions_input <- variables[3]
+titre_genotyping_input <- variables[4]
+titre_markers_ouput <- variables[5]
 
 # 
 # titre_physical_position_markers <-"/work/adanguy/these/croisements/amont/Vraies_positions_marqueurs.txt"      
@@ -44,65 +44,38 @@ titre_markers <- variables[5]
 
 
 
-cat("\n\n INPUT : physical positions of markers \n\n")
-pos <- fread(titre_physical_position_markers)
-head(pos)
-dim(pos)
+cat("\n\n INPUT : info on markers \n\n")
+fread(titre_physical_position_markers_input) %>% arrange(chr, pos, BW) %>% head()
+fread(titre_physical_position_markers_input) %>% arrange(chr, pos, BW) %>% tail()
+fread(titre_physical_position_markers_input) %>% dim()
 # warning : contain private data
-# column 1 = BW = marker ID (string, as many levels as number of markers, here 423 385)
-# column 2 = chr = chr ID with letters (string, 21 levels)
-# column 3 = chr2 = chr ID with numbers (intergers, 21 levels)
-# column 4 = pos = physical position of marker (intergers, units bp)
-# to check that chr ID are consistent : table(pos$chr, pos$chr2)
-# dimension of file : 423 385 * 4
 
-cat("\n\n INPUT : correspondance of chr letters and number code ID \n\n")
-cor_chr <- read.table(titre_correspondance_chr, header=F, dec=".", sep="\t")
-cor_chr
-# column 1 = V1 = chr = chr ID with letters (string, 21 levels)
-# column 2 = V2 = chr ID with numbers (intergers, 21 levels)
-# to check that chr ID are consistent : table(pos$chr, pos$chr2) should match cor_chr
 
-# dimension of file : 21 * 2
+cat("\n\n INPUT : correspondance of chr ID letters code and number code \n\n")
+read.table(titre_correspondance_chr_input, header=F, dec=".", sep="\t")
 
-cat("\n\n INPUT : chromosome partionning \n\n")
-regions  <- read.table(titre_chr_regions, header=T, dec=".", sep="\t", skip=1) 
-regions
-# column 1 = Chromosome = "chr" + chr ID with letters (string, 21 levels)
-# column 3 = R1.R2a = physical frontier between regions R1 and R2a (intergers, units Mb)
-# column 4 = R2a.C = physical frontier between regions R2a and C (intergers, units Mb)
-# column 5 = C.R2b = physical frontier between regions C and R2b (intergers, units Mb)
-# column 6 = R2b.R3 = physical frontier between regions R2b and R3 (intergers, units Mb)
-# column 2 and 7 - 16 = no importance here
-# dimension of file : 21*16
+cat("\n\n INPUT : genomic regions \n\n")
+read.table(titre_chr_regions_input, header=T, dec=".", sep="\t", skip=1) 
 
 
 
-cat("\n\n INPUT : genotyping matrix to have markers ID \n\n")
-genotyping <- suppressWarnings(fread(titre_genotyping_matrix_filtered))
-genotyping[1:10, 1:10]
-dim(genotyping)
-# column 1 = V1 = variery ID (string, as many levels as the row number, here 2 143)
-# column 2 - 31 315 = AX.1234567 = marker ID (intergers), here 31 315 markers
-# dimension of file : 2 143 * 31315
+cat("\n\n INPUT : genotyping data \n\n")
+fread(titre_genotyping_input) %>% arrange(ID) %>% select(1:10) %>% slice(1:10)
+fread(titre_genotyping_input) %>% arrange(ID) %>% select(1:10) %>% slice((nrow(.)-10) : nrow(.))
+fread(titre_genotyping_input) %>% dim()
 
 
-
-# markers used 
-genotyping_matrix <- scan(titre_genotyping_matrix_filtered, nline=1, what="character")
 
 
 # A : allocate chr and genomic region to each marker
 
 
-cat("\n\n corresponding ID for chr \n\n")
-cor_chr2 <- cor_chr %>%
+cor_chr2 <- read.table(titre_correspondance_chr_input, header=F, dec=".", sep="\t") %>%
   rename( chr = V1, chr_code_nombre = V2) %>%
   mutate(chr=as.character(chr))
-head(cor_chr2)
 
 
-regions2  <- regions %>%
+regions2  <- read.table(titre_chr_regions_input, header=T, dec=".", sep="\t", skip=1)  %>%
   dplyr::select(Chromosome, R1.R2a, R2a.C, C.R2b, R2b.R3) %>%
   mutate(chr = str_remove(Chromosome,"chr")) %>%
   dplyr::select(-one_of("Chromosome")) %>% 
@@ -125,46 +98,39 @@ regions2  <- regions %>%
   ungroup() %>%
   dplyr::select(chr, region, pos_min, pos_max)
 
-cat("\n\n frontiers of genomic regions\n\n")
-head(regions2)
-
-
 
 
 
 # B : extraction of marker ID and physical positions
 
-markers <- colnames(genotyping) %>%
+markers <- fread(titre_genotyping_input) %>% 
+  colnames() %>%
   str_replace_all(pattern="AX.",replacement="AX-") %>% 
   as.data.frame() %>%
   rename(marker=".") %>%
   mutate(marker=as.character(marker)) %>%
-  inner_join(pos, by=c("marker"="BW")) %>%  # obtain the physical position of markers
+  inner_join(fread(titre_physical_position_markers_input), by=c("marker"="BW")) %>%  # obtain the physical position of markers
   na.omit() %>% # removing every marker with missing info
   group_by(chr, chr2,pos) %>%
   mutate(duplicate=n()) %>%
   filter(duplicate == 1)  %>% # remove markers whose physical position is shared with another marker 
   ungroup() %>%
-  arrange(chr, pos) %>%
   inner_join(regions2, by="chr") %>%
   filter(pos >= pos_min & pos <= pos_max) %>%
-  arrange(chr, pos) %>%
-  filter(marker %in% genotyping_matrix) %>%
-  dplyr::select(chr, region, pos, marker) 
+  arrange(chr, pos, marker) %>%
+  dplyr::select(chr, region, pos, marker)  %>%
+  as.data.frame()
 
-cat("\n\n markers removed because problems in position \n\n ")
-length(which(!colnames(genotyping) %in% markers$marker)[-1])
+cat("\n\n markers removed because problems in position, too much NA, too muche heterozygotie \n\n ")
+length(which(! fread(titre_genotyping_input) %>% 
+               colnames() %in% markers$marker)[-1])
 
 
-cat("\n\n OUTPUT : markers with physical position \n\n")
+cat("\n\n OUTPUT : markers info \n\n")
 head(markers)
+tail(markers)
 dim(markers)
-# column 1 = chr = chr ID with letters (string, 21 levels)
-# column 2 = region = ID of chr region (string, 5 levels R1, R2a, C, R2b, R3)
-# column 4 = pos = physical position of marker (intergers, units bp)
-# column 5 = marker = marker ID (string, as many levels as number of markers, here 31 314)
-# dimension: 31314*4
-write.table(markers, titre_markers, col.names = T, row.names = F, quote=F, dec=".", sep="\t")
+write.table(markers, titre_markers_ouput, col.names = T, row.names = F, quote=F, dec=".", sep="\t")
 
 
 

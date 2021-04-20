@@ -20,7 +20,7 @@ colonne=int(sys.argv[1])-1
 # path of output
 titre_best_crosses=sys.argv[2]
 # path of input
-titre_tab1_variance_crosses=sys.argv[3]
+titre_crosses_filtered=sys.argv[3]
 # path of cplex programm
 titre_path_cplex=sys.argv[4]
 D=int(sys.argv[5])
@@ -74,7 +74,7 @@ import cplex as cplex
 
 
 
-f=open(titre_tab1_variance_crosses)
+f=open(titre_crosses_filtered)
 # column 0 = p1 = ID of parent 1 (character)
 # column 1 = p2 = ID of parent 2 (character)
 # column 2 = u = expected mean of progeny (numeric)

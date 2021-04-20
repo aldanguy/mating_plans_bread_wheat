@@ -6,7 +6,7 @@
 
 
 Sys.time()
-cat("\n\nsd_predictions.R\n\n")
+cat("\n\nsubset_crosses_sd_predictions.R\n\n")
 rm(list = ls())
 graphics.off()
 set.seed(1)
@@ -22,17 +22,20 @@ cat("\n\nVariables : \n")
 print(variables)
 cat("\n\n")
 
-titre_crosses <-variables[1]
+titre_crosses_input <-variables[1]
 nbcrosses <- as.numeric(variables[2])
 nbprogeny <- as.numeric(variables[3])
-titre_crosses_subset <- variables[4]
+titre_crosses_subset_output <- variables[4]
 
 
 
-# titre_crosses <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/crosses.txt"
-# titre_crosses_subset 
-# nbcrosses <- 200
-# nbprogeny=200
+# titre_crosses_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/value_crosses/crosses/crosses_g1_simTRUE_20cm_r1_WE.txt"
+# nbcrosses <- 50                                                                                                      
+# nbprogeny <- 50                                                                                                        
+# titre_crosses_subset_output <-  "/work2/genphyse/dynagen/adanguy/croisements/050321/sd_predictions/subset_crosses_g1_simTRUE_20cm_r1_WE.txt"
+# 
+# 
+# 
 
 
 
@@ -40,8 +43,10 @@ titre_crosses_subset <- variables[4]
 
 
 cat("\n\n INPUT : crosses \n\n")
-crosses <- fread(titre_crosses) %>%as.data.frame()
+crosses <- fread(titre_crosses_input) 
 head(crosses)
+tail(crosses)
+dim(crosses)
 
 
 choose_crosses <- function(crosses, statistique, nb_choosen_crosses){
@@ -83,13 +88,14 @@ choose_crosses <- function(crosses, statistique, nb_choosen_crosses){
 }
 
 
-lines_u = choose_crosses(crosses=crosses, statistique="u", nb_choosen_crosses = floor(nbcrosses/4))
-lines_sd = choose_crosses(crosses=crosses, statistique="sd_WE", nb_choosen_crosses = floor(nbcrosses/4))
-lines_uc = choose_crosses(crosses=crosses, statistique="uc_WE", nb_choosen_crosses = floor(nbcrosses/4))
-lines_logw = choose_crosses(crosses=crosses, statistique="logw_WE", nb_choosen_crosses = floor(nbcrosses/4))
+lines_gebv = choose_crosses(crosses=crosses, statistique="gebv", nb_choosen_crosses = floor(nbcrosses/5))
+lines_sd = choose_crosses(crosses=crosses, statistique="sd", nb_choosen_crosses = floor(nbcrosses/5))
+lines_uc = choose_crosses(crosses=crosses, statistique="uc", nb_choosen_crosses = floor(nbcrosses/5))
+lines_logw = choose_crosses(crosses=crosses, statistique="logw", nb_choosen_crosses = floor(nbcrosses/5))
+lines_uc_extreme = choose_crosses(crosses=crosses, statistique="uc_extreme", nb_choosen_crosses = floor(nbcrosses/5))
 
 
-lines <- c(lines_u, lines_sd, lines_uc, lines_logw)
+lines <- c(lines_gebv, lines_sd, lines_uc, lines_logw, lines_uc_extreme)
 lines <- sort(unique(lines))
 
 while (length(lines) < nbcrosses){
@@ -101,14 +107,15 @@ while (length(lines) < nbcrosses){
 
 crosses_subset <- crosses[lines, ] %>%
   mutate(nbprogeny=nbprogeny) %>%
-  mutate(generation=1) %>%
-  mutate(run=1) %>%
-  dplyr::select(P1, P2, nbprogeny, generation, run) %>%
-  arrange(P1, P2)
+  dplyr::select(P1, P2, nbprogeny) %>%
+  arrange(P1, P2) %>%
+  as.data.frame()
 
 
 cat("\n\n OUTPUT : subset crosses \n\n")
 head(crosses_subset)
-write.table(crosses_subset, titre_crosses_subset, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
+tail(crosses_subset)
+dim(crosses_subset)
+write.table(crosses_subset, titre_crosses_subset_output, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
 
 sessionInfo()

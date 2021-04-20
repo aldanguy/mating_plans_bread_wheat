@@ -24,12 +24,10 @@ cat("\n\n")
 
 
 
-titre_genetic_map_WE <- variables[1]
-titre_genetic_map_EE <- variables[2]
-titre_genetic_map_WA <- variables[3]
-titre_genetic_map_EA <- variables[4]
-titre_genetic_map_CsRe <- variables[5]
-titre_markers_filtered <- variables[6]
+titre_genetic_map_input <- variables[1]
+titre_markers_input <- variables[2]
+population <- variables[3]
+titre_markers_output <- variables[4]
 
 
  # titre_genetic_map_WE <- "/work2/genphyse/dynagen/adanguy/croisements/090221/prepare/genetic_map_WE.txt"  
@@ -43,21 +41,16 @@ titre_markers_filtered <- variables[6]
 
 # population <- "WE"
 
-cat("\n\n INPUT : genetic map \n\n")
-genetic_map_WE <- fread(titre_genetic_map_WE)
-head(genetic_map_WE)
-dim(genetic_map_WE)
-# column 1 = population = population ID (string, 5 levels CsRe, WE, EE, WA, EA)
-# column 2 = chr = chr ID (string, 21 levels)
-# column 3 = region = ID of chr region (string, 5 levels R1, R2a, C, R2b, R3)
-# column 4 = pos = physical position of marker (interger, units pb)
-# column 5 = marker = marker ID (string, as many levels as number of markers) Number of marker = 170 002 in WE ; 160 564 in EE, 171 354 in WA and 131 078 in EA and 79 544 for CsRe
-# column 6 = dcum = cumulated genetic distance of marker since start of the chromosome (numeric, units cM)
+cat("\n\n INPUT : markers info \n\n")
+fread(titre_genetic_map_input) %>% head()
+fread(titre_genetic_map_input) %>% tail()
+fread(titre_genetic_map_input) %>% dim()
+
 
 cat("\n\n INPUT : markers with physical position \n\n")
-markers0 <- fread(titre_markers_filtered)
-head(markers0)
-dim(markers0)
+fread(titre_markers_input) %>% head()
+fread(titre_markers_input) %>% tail()
+fread(titre_markers_input) %>% dim()
 # column 1 = chr = chr ID with letters (string, 21 levels)
 # column 2 = region = ID of chr region (string, 5 levels R1, R2a, C, R2b, R3)
 # column 3 = pos = physical position of marker (intergers, units bp)
@@ -101,7 +94,7 @@ chr="1A"
 # mais les modeles lineaires pour estimer les positions des mqs situés avant ou après csre changent
 for (chr in unique(interpol$chr)){
   
-  print(chr)
+  #print(chr)
   
   
   if(na_index$first_non_NA[which(na_index$chr==chr)] ==1){ # si tous les mqs en R1 ont pas pu etre interpoles (first_non_NA=1)
@@ -237,53 +230,17 @@ return(interpol3)
 }
 
 
-interpolation_WE <- function_interpolation(titre_genetic_map_WE, markers=markers0)
-interpolation_WE <- interpolation_WE %>% rename(dcum_WE=dcum)
-
-interpolation_EE <- function_interpolation(titre_genetic_map_EE, markers=markers0)
-interpolation_EE <- interpolation_EE %>% rename(dcum_EE=dcum)
-
-
-interpolation_WA <- function_interpolation(titre_genetic_map_WA, markers=markers0)
-interpolation_WA <- interpolation_WA %>% rename(dcum_WA=dcum)
+interpolation <- function_interpolation(titre_genetic_map_input, markers=fread(titre_markers_input)) %>%
+  mutate(population=population) %>%
+  dplyr::select(chr, region, pos, marker, population, dcum) %>%
+  as.data.frame()
 
 
-interpolation_EA <- function_interpolation(titre_genetic_map_EA, markers=markers0)
-interpolation_EA <- interpolation_EA %>% rename(dcum_EA=dcum)
-
-
-interpolation_CsRe <- function_interpolation(titre_genetic_map_CsRe, markers=markers0)
-interpolation_CsRe <- interpolation_CsRe %>% rename(dcum_CsRe=dcum)
-
-
-interpolation <- interpolation_WE %>%
-  full_join(interpolation_EE, by=c("chr","region", "pos", "marker")) %>%
-  full_join(interpolation_WA, by=c("chr","region", "pos", "marker")) %>%
-  full_join(interpolation_EA, by=c("chr","region", "pos", "marker")) %>%
-  full_join(interpolation_CsRe, by=c("chr","region", "pos", "marker")) %>%
-  dplyr::select(chr, region, pos, marker, dcum_WE, dcum_EE, dcum_WA, dcum_EA, dcum_CsRe) %>%
-  arrange(chr, pos) %>%
-  group_by(marker) %>%
-  mutate(region=region[1]) %>%
-  mutate(dcum_WE=max(dcum_WE, na.rm=T)) %>%
-  mutate(dcum_EE=max(dcum_EE, na.rm=T)) %>%
-  mutate(dcum_WA=max(dcum_WA, na.rm=T)) %>%
-  mutate(dcum_EA=max(dcum_EA, na.rm=T)) %>%
-  mutate(dcum_CsRe=max(dcum_CsRe, na.rm=T)) %>%
-  ungroup() %>%
-  unique()
-  
-  
-
-
-cat("\n\n OUTPUT : genetic map for the specific SNP dataset \n\n")
+cat("\n\n OUTPUT : markers info \n\n")
 head(interpolation)
+tail(interpolation)
 dim(interpolation)
-# column 1 = chr = chr ID with letters (string, 21 levels)
-# column 2 = pos = physical position of marker (intergers, units bp)
-# column 3 = marker = marker ID (string, as many levels as number of markers, here 21 196)
-# column 4 = dcum = cumulated genetic distance since chromsome start (numeric, units cM)
 
-write.table(interpolation, titre_markers_filtered, col.names = T, row.names = F, quote=F, dec=".", sep="\t")
+write.table(interpolation, titre_markers_output, col.names = T, row.names = F, quote=F, dec=".", sep="\t")
 
 sessionInfo()

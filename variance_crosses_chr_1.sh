@@ -10,56 +10,45 @@ nbcores=${2}
 
 source ${base}
 
-rm ${r_log_value_crosses_variance_crosses_chr}jobs_variance_crosses_chr.txt
 
-for c in ${chr[*]}
+types=$(cat ${r_value_crosses}markers_filtered_estimated.txt | cut -f7 | sort | uniq | grep -v "type" )
+
+for type in ${types[*]}
 do
 
+    for population in ${populations[*]}
+        do
 
-    echo ${c}
+
+
+        r_log=${r_log_value_crosses_variance_crosses_chr}${type}/${population}/
+        mkdir -p ${r_log}
+        
+        ID=${type}_${population}
+
+        echo ${ID}
   
-	job_out=${r_log_value_crosses_variance_crosses_chr}variance_crosses_chr_${c}.out
+        job_out=${r_log}variance_crosses_chr_${ID}.out
     
-    job_name=${c}
+        job_name=${ID}
 	    
-    job=$(sbatch -o ${job_out} -J ${job_name} -c ${nbcores} --time=10:00:00  --mem-per-cpu=10G --parsable ${r_scripts}variance_crosses_chr.sh ${base} ${nbcores} ${c}) 
+        job=$(sbatch -o ${job_out} -J ${job_name} --mem=10G --parsable ${r_scripts}crosses_2.sh ${base} ${nbcores} ${type} ${population}) 
     
-    echo "${job_out} =" >> ${r_log_value_crosses_variance_crosses_chr}jobs_variance_crosses_chr.txt
-    echo "${job}" >> ${r_log_value_crosses_variance_crosses_chr}jobs_variance_crosses_chr.txt
-
+        echo "${job_out} =" >> ${r_log_value_crosses_crosses}jobs_crosses.txt
+        echo "${job}" >> ${r_log_value_crosses_crosses}jobs_crosses.txt
+    
+    done
 	
 done
 
 
-while (( $(squeue -u adanguy | grep -f ${r_log_value_crosses_variance_crosses_chr}jobs_variance_crosses_chr.txt | wc -l) >= 1 )) 
+
+
+while (( $(squeue -u adanguy | grep -f ${r_log_value_crosses_crosses}jobs_crosses.txt | wc -l) >= 1 )) 
 do    
     sleep 1s
 done
 
-
-rm ${r_value_crosses}variance_crosses.txt
-k=0
-for f in ${r_value_crosses_variance_crosses_chr}variance_crosses_*.txt
-do 
-
-
-    if ((k==0 ))
-        
-    then 
-        
-        cat ${f} > ${r_value_crosses}variance_crosses.txt
-            rm ${f}
-        
-    else
-        
-        tail -n+2 ${f} >> ${r_value_crosses}variance_crosses.txt
-            rm ${f}
-
-    fi
-        
-    k=$((k +1))
-        
-done
 
 
 

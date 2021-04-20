@@ -27,9 +27,11 @@ cat("\n\n")
 titre_lines_critere <- variables[1]
 titre_predictions <- variables[2]
 generation <- as.numeric(variables[3])
-critere <- variables[4]
-run <- as.numeric(variables[5])
-titre_lines <- variables[6]
+type <- variables[4]
+population <- variables[5]
+critere <- variables[6]
+affixe <-variables[7]
+rr <- as.numeric(variables[8])
 
 
 # titre_lines <- "/work/adanguy/these/croisements/180121/lines.txt"    
@@ -40,45 +42,20 @@ titre_lines <- variables[6]
 cat("\n\n INPUT : predictions of BV \n\n")
 pred <- fread(titre_predictions)
 head(pred)
+tail(pred)
 dim(pred)
 
-lines <- fread(titre_lines)
-head(lines)
-dim(lines)
 
+pred2 <- pred %>% rename(ID=V1, value=V3) %>%
+  mutate(generation=!!generation, type=!!type, population=!!population, critere=!!critere, affixe=!!affixe, rr=!!rr, used_as_parent=F) %>%
+  dplyr::select(ID, generation, type, population, critere, affixe, rr, value, used_as_parent) %>%
+  arrange(ID)
 
-pred2 <- pred %>% rename(ID=V1, gebv=V3) %>%
-  mutate(LINE=NA, phenotyped=F, blue=NA, genotyped=T, used_as_parent=F, generation=generation, best_crosses=critere, run=run) %>%
-  dplyr::select(LINE, ID, phenotyped, blue, gebv, genotyped, used_as_parent, generation, best_crosses, run)
-
-
-if (generation == 1 & run==1){
-  
-  
- 
-  
-  lines <- fread(titre_lines) %>% rename(ID=line2) %>%
-    mutate(best_crosses=critere) %>%
-    rbind(., pred2) 
-  
-
-  }else if (generation==1 & run !=1){
-    
-    
-    lines <- pred2
-    
-  
-} else {
-  
-  lines <- fread(titre_lines_critere) %>%
-    rbind(., pred2) 
-  
-  
-}
 
 cat("\n\n OUTPUT : lines info")
-print(tail(lines))
-dim(lines)
-write_delim(lines, titre_lines_critere, delim = "\t", na = "NA", append = F,  col_names = (generation == 1 & run==1) , quote_escape = "none")
+head(pred2)
+tail(pred2)
+dim(pred2)
+write_delim(pred2, titre_lines_critere, delim = "\t", na = "NA", append = F,  col_names = T, quote_escape = "none")
 
 sessionInfo()

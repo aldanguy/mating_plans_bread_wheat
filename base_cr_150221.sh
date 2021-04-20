@@ -44,30 +44,36 @@ r_prepare=${r_big_files}prepare/
 mkdir -p ${r_prepare}
 
 
+
+r_prepare=/work2/genphyse/dynagen/adanguy/croisements/050321/prepare/
+
+
 # value_crosses.sh
 
 
 
 
 r_value_crosses=${r_big_files}value_crosses/
-r_value_crosses_variance_crosses_chr=${r_value_crosses}variance_crosses_chr/
-r_value_crosses_variance_crosses_chr_big_matrix=${r_value_crosses_variance_crosses_chr}big_matrix/
+r_value_crosses_variance_crosses=${r_value_crosses}variance_crosses/
+r_value_crosses_simulate_qtls=${r_value_crosses}simulate_qtls/
+r_value_crosses_crosses=${r_value_crosses}crosses/
 
 mkdir -p ${r_value_crosses}
-mkdir -p ${r_value_crosses_variance_crosses_chr}
-mkdir -p ${r_value_crosses_variance_crosses_chr_big_matrix}
+mkdir -p ${r_value_crosses_variance_crosses}
+mkdir -p ${r_value_crosses_crosses}
+mkdir -p ${r_value_crosses_simulate_qtls}
 
 
 
 r_log_value_crosses=${r}log/value_crosses/
 r_log_value_crosses_gblup=${r_log_value_crosses}gblup/
-r_log_value_crosses_variance_crosses_chr=${r_log_value_crosses}variance_crosses_chr/
+r_log_value_crosses_variance_crosses=${r_log_value_crosses}variance_crosses/
 r_log_value_crosses_simulate_qtls=${r_log_value_crosses}simulate_qtls/
 r_log_value_crosses_crosses=${r_log_value_crosses}crosses/
 
 mkdir -p ${r_log_value_crosses}
 mkdir -p ${r_log_value_crosses_gblup}
-mkdir -p ${r_log_value_crosses_variance_crosses_chr}
+mkdir -p ${r_log_value_crosses_variance_crosses}
 mkdir -p ${r_log_value_crosses_simulate_qtls}
 mkdir -p ${r_log_value_crosses_crosses}
 
@@ -82,12 +88,18 @@ r_best_crosses_gebv=${r_best_crosses}gebv/
 r_best_crosses_uc=${r_best_crosses}uc/
 r_best_crosses_logw=${r_best_crosses}logw/
 r_best_crosses_random=${r_best_crosses}random/
+r_best_crosses_genotypes=${r_best_crosses}genotypes/
+r_best_crosses_lines=${r_best_crosses}lines/
+r_best_crosses_pedigree=${r_best_crosses}pedigree/
+
 
 mkdir -p ${r_best_crosses}
 mkdir -p ${r_best_crosses_gebv}
 mkdir -p ${r_best_crosses_uc}
 mkdir -p ${r_best_crosses_logw}
-mkdir -p ${r_best_crosses_random}
+mkdir -p ${r_best_crosses_genotypes}
+mkdir -p ${r_best_crosses_lines}
+mkdir -p ${r_best_crosses_pedigree}
 
 
 
@@ -185,15 +197,19 @@ Kmin=0
 Cmax=250
 Cmax=10000
 
-nb_run=10
+nb_run=2
 
-cm=(all 0.1 1 10)
 cm=(all 10)
 
 heritability=(0.25 0.8)
 
 
+populations=(WE EE WA EA CsRe)
 
+
+criteres=(gebv uc logw)
+
+affixes=(simple real)
 
 
 function paste_columns {

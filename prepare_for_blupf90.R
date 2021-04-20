@@ -16,7 +16,6 @@ set.seed(1)
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(compiler))
-suppressPackageStartupMessages(library(synbreed))
 
 
 variables <- commandArgs(trailingOnly=TRUE)
@@ -26,174 +25,152 @@ cat("\n\n")
 
 
 
-titre_lines <- variables[1]
-titre_markers_filetred_subset <- variables[2]
-titre_genotyping_matrix_filtered_imputed_subset <- variables[3]
-titre_phenotyping_data_blupf90 <- variables[4]
-titre_map_for_blupf90 <- variables[5]
-titre_genotyping_matrix_for_blupf90 <- variables[6]
-titre_weights_for_blupf90 <- variables[7]
-subset = variables[8]
-titre_function_sort_genotyping_matrix = variables[9]
+titre_lines_input <- variables[1]
+titre_markers_input <- variables[2]
+titre_genotyping_input <- variables[3]
+titre_phenotyping_blupf90 <- variables[4]
+titre_markers_blupf90 <- variables[5]
+titre_genotyping_blupf90 <- variables[6]
+titre_weights_blupf90 <- variables[7]
+titre_function_sort_genotyping_matrix = variables[8]
+titre_function_subset_markers <- variables[9]
 population <- variables[10]
-simulation <- variables[11]
-run <- as.numeric(variables[12])
-h2 <- as.numeric(variables[13])
+type <- variables[11]
 
  
-# titre_lines <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/lines_estimated_qtls.txt"        
-# titre_markers_filetred_subset <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/markers_filtered.txt"                  
-# titre_genotyping_matrix_filtered_imputed_subset <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/genotyping_matrix_filtered_imputed.txt"
-# titre_phenotyping_data_blupf90 <- "/work/adanguy/blupf90/pheno/p10TRUE01.txt"                                                        
-# titre_map_for_blupf90 <- "/work/adanguy/blupf90/map/m10TRUE01.txt"                                                          
-# titre_genotyping_matrix_for_blupf90 <-  "/work/adanguy/blupf90/snp/s10TRUE01.txt"                                                          
-# titre_weights_for_blupf90 <-  "/work/adanguy/blupf90/weights/w10TRUE01.txt"                                                      
-# subset = "10"                                                                                               
-# titre_function_sort_genotyping_matrix ="/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"                                 
-# population <-  "WE"                                                                                               
-# simulation <- "TRUE"                                                                                             
-# run <- 1                                                                                               
-# generation <- 0                                                                                               
-# h2 <- 0.25
+# titre_lines_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/value_crosses/lines_estimated.txt"
+# titre_markers_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/prepare/markers.txt"              
+# titre_genotyping_input <-  "/work2/genphyse/dynagen/adanguy/croisements/050321/prepare/genotyping.txt"           
+# titre_phenotyping_blupf90 <-  "psimTRUE.chrcm.h0.8.r10.txt"                                                         
+# titre_markers_blupf90 <-"msimTRUE.chrcm.h0.8.r10.txt"                                                         
+# titre_genotyping_blupf90 <- "ssimTRUE.chrcm.h0.8.r10.txt"                                                         
+# titre_weights_blupf90 <- "wsimTRUE.chrcm.h0.8.r10.txt"                                                         
+# titre_function_sort_genotyping_matrix = "/work/adanguy/these/croisements/scripts/sort_genotyping_matrix.R"                    
+# titre_function_subset_markers <- "/work/adanguy/these/croisements/scripts/subset_markers.R"                            
+# population <-  "WE"                                                                                  
+# type <- "simTRUE_chrcm_h0.8_r10"                                                                                    
 
 
 
 source(titre_function_sort_genotyping_matrix)
+source(titre_function_subset_markers)
+
+subset=as.vector(unlist(strsplit(type, split = "_")))[2]
 
 
 
-cat("\n\n INPUT : new ID of varieties with a uniform format \n\n")
-lines <- fread(titre_lines)
-head(lines)
-# column 1 = LINE = ID of variety (string, 3 185 levels = as many as varieties ID)
-# column 2 = line2 = modified ID of variety (use in further analysis) (string, 3 185 levels)
-# column 3 = phenotyped = variety phenotyped  (logical)
-# column 4 = blue = estimate of variety yield (numeric)
-# column 5 = genotyped = variety was genotyped (logical)
-# column 6 = used_as_parent = variety used as parent (logical)
-# dim file : 3185*6
+cat("\n\n INPUT : lines info \n\n")
+fread(titre_lines_input) %>% arrange(ID, type) %>% head()
+fread(titre_lines_input) %>% arrange(ID, type)%>% tail()
+fread(titre_lines_input) %>% arrange(ID, type)  %>% filter(used_as_parent==T & phenotyped==T) %>% head()
+fread(titre_lines_input) %>% dim()
+
+cat("\n\n INPUT : markers info \n\n")
+fread(titre_markers_input) %>% head()
+fread(titre_markers_input) %>% tail()
+fread(titre_markers_input) %>% dim()
+
+cat("\n\n INPUT : genotyping data \n\n")
+fread(titre_genotyping_input) %>% select(1:10) %>% slice(1:10)
+fread(titre_genotyping_input) %>% select(1:10) %>% slice((nrow(.)-10):nrow(.))
+fread(titre_genotyping_input)%>% dim()
 
 
 
-cat("\n\n INPUT : markers with physical position \n\n")
-markers <- fread(titre_markers_filetred_subset)
-head(markers)
-# column 1 = chr = chr ID with letters (string, 21 levels)
-# column 2 = region = ID of chr region (string, 5 levels R1, R2a, C, R2b, R3)
-# column 4 = pos = physical position of marker (intergers, units bp)
-# column 5 = marker = marker ID (string, as many levels as number of markers, here 19806)
-# dimension: 19806*5
 
 
 
-cat("\n\n OUTPUT : genotyping matrix imputed \n\n")
-genotyping_matrix_imputed <- fread(titre_genotyping_matrix_filtered_imputed_subset)
-genotyping_matrix_imputed[1:10,1:10]
-# column 1 = line 2 = modified ID for variety (string, as many levels as number of lines, i.e. 2089)
-# column 2 - 19751 = genotype at each SNP
-# dimension: 2089 * 19821
 
 
-if (simulation !="TRUE"){
-
-lines2 <- lines %>% filter(used_as_parent==T & generation==0) %>%
-  dplyr::select(line2, blue) %>% #add run==0
-  arrange(line2) %>%
-  mutate(blue=ifelse(is.na(blue), 0, blue))
-
-} else if (simulation =="TRUE") {
+if (length(grep("TRUE", type))==0){
   
-  lines2 <- lines %>% filter(used_as_parent==T & generation==0 ) %>% 
-    dplyr::select(one_of("line2",  paste0("blue_qr_",subset,"cm_h",h2,"_r",run))) %>%
-    arrange(line2) %>%
-    rename(blue:=!!paste0("blue_qr_",subset,"cm_h",h2,"_r",run)) %>%
-    mutate(blue=ifelse(is.na(blue), 0, blue))
-  
-  
-}
+  print("simF")
 
-markers  <- markers %>% arrange(chr, pos, marker)
-colonne_markers <- colnames(markers)[grep(population,colnames(markers))]
-markers[,"dcum"] <- markers[,colonne_markers]
+  lines2 <- fread(titre_lines_input)  %>% filter(used_as_parent==T & type=="pheno_simFALSE") %>%
+    arrange(ID) %>%
+    dplyr::select(ID, value)
 
-if (subset !="all"){
   
-  cM = as.numeric(subset)
+}else if (length(grep("TRUE", type))==1) {
   
-  genetic_map_subset <- markers %>%
-    mutate(segment=plyr::round_any(dcum, cM))%>%
-    group_by(chr, segment) %>%
-    dplyr::mutate(n=rep(1:n())) %>%
-    filter(n==n()) %>%
-    ungroup() 
-} else {
+  print("simT")
   
+  type2=paste0("pheno_",type)
   
-  genetic_map_subset <- markers
+  lines2 <- fread(titre_lines_input)  %>% filter(used_as_parent==T & endsWith(type, type2)==T) %>%
+    arrange(ID) %>%
+    dplyr::select(ID, value)
   
-}  
+
+} 
+
+markers2 <- fread(titre_markers_input) %>% 
+  arrange(chr, pos, marker, population) %>%
+  filter(population==!!population)
 
 
+#genetic_map_subset1 <- subset_genetic_map(genetic_map_raw=markers2, population=population, cM=subset) # sample markers which are QTLs in case of simulation
 
-
-genetic_map_subset2 <- genetic_map_subset %>% arrange(chr, pos, marker) %>%
+genetic_map_subset2 <- markers2%>%
+  arrange(chr, pos, marker) %>%
   dplyr::select(marker, chr, pos) %>%
-  filter(marker %in% genetic_map_subset$marker) %>%
+  # filter(!marker %in% unique(genetic_map_subset1$marker)) %>% # remove if QTLs should be included in markers
   rename(SNP_ID=marker, CHR=chr, POS=pos) %>%
-  mutate(CHR=as.numeric(as.factor(CHR)))
+  mutate(CHR=as.numeric(as.factor(CHR))) %>%
+  as.data.frame() %>% unique()
 
+genetic_map_subset3 <- markers2%>%
+  arrange(chr, pos, marker) %>%
+  dplyr::select(marker, chr, pos) %>%
+  # filter(!marker %in% unique(genetic_map_subset1$marker))
+  unique() 
 
 weights <- rep(1, times=nrow(genetic_map_subset2))
 
 
-genotyping_matrix_imputed <- sort_genotyping_matrix(genotyping_matrix_imputed, genetic_map_subset %>% 
-                                                      arrange(chr, pos, marker) %>%
-                                                      dplyr::select(marker, chr, pos) %>%
-                                                      filter(marker %in% genetic_map_subset$marker))
+genotyping <- sort_genotyping_matrix(fread(titre_genotyping_input), genetic_map_subset3) %>%
+  filter(ID %in% lines2$ID)
 
 # 5 represent missing value for blupf90
-genotyping_matrix_imputed[is.na(genotyping_matrix_imputed)] <- 5
+genotyping[is.na(genotyping)] <- 5
 
-genotyping <- genotyping_matrix_imputed %>%
+genotyping <- genotyping %>%
   mutate_at(vars(starts_with("AX")), funs(as.integer(as.character(.)))) %>%
   unite(SNP, starts_with("AX"), sep="")%>%
-  dplyr::select(line2, SNP) 
+  dplyr::select(ID, SNP) 
 
 
 
 cat("\n\n OUPUT : phenotyping data for BLUPF90 \n\n")
 head(lines2)
+tail(lines2)
+lines2 %>% filter(!is.na(value)) %>% head()
 dim(lines2)
-write.table(lines2, titre_phenotyping_data_blupf90, col.names = F, row.names = F, dec=".", sep=" ", quote=F)
-# column 1 = line2 = modified ID of variety (string, 840 levels)
-# column 2 = blue = genotypic value of the line
+write.table(lines2, titre_phenotyping_blupf90, col.names = F, row.names = F, dec=".", sep=" ", quote=F)
 
 
 
 
-cat("\n\n OUTPUT : file for blupf90 \n\n")
+cat("\n\n OUTPUT : markers for blupf90 \n\n")
 head(genetic_map_subset2)
+tail(genetic_map_subset2)
 dim(genetic_map_subset2)
-# column 1 = SNP_ID = marker ID (string, as many levels as number of markers, here 19 750)
-# column 2 = CHR = chr number code (integers but factors, 21 levels)
-# column 3 = POS = physical position of marker (intergers, units bp)
-# dimension: 19 750*4
-write.table(genetic_map_subset2, titre_map_for_blupf90, col.names = T, row.names = F, quote=F, dec=".", sep=" ")
+write.table(genetic_map_subset2, titre_markers_blupf90, col.names = T, row.names = F, quote=F, dec=".", sep=" ")
 
 
 
-cat("\n\n OUTPUT : file for blupf90 n°2 \n\n")
+cat("\n\n OUTPUT : weights file for blupf90 \n\n")
 head(weights)
-dim(weights)
-# column 1 = weights = weights for each SNP to compute G (numeric)
-# dimension: 19 750*1
-write.table(weights, titre_weights_for_blupf90, col.names = F, row.names = F, quote=F, dec=".", sep=" ")
+tail(weights)
+length(weights)
+write.table(weights, titre_weights_blupf90, col.names = F, row.names = F, quote=F, dec=".", sep=" ")
 
 
 
 cat("\n\n OUPUT : genotyping data for BLUPF90 \n\n")
-dim(genotyping)
-write.table(genotyping, titre_genotyping_matrix_for_blupf90, col.names = F, row.names = F, dec=".", sep=" ", quote=F)
+genotyping %>% dim()
+print(nchar(genotyping[1,2]))
+write.table(genotyping, titre_genotyping_blupf90, col.names = F, row.names = F, dec=".", sep=" ", quote=F)
 # column 1 = LINE2 = modified ID of variety (string, 840 levels)
 # column 2 = SNP data (0=homozygote recessiv, 1 = heteroyzgote, 2 = homozygote dominant, 5 = missing value) (string, 840 levels)
 # dimmension of output : 840 lines * 2 columns

@@ -7,7 +7,7 @@ D=3300
 
 Dmax=60
 
-Dmin=1
+Dmin=5
 
 Pmax=132
 

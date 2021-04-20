@@ -42,28 +42,33 @@ titre_function_calcul_index_variance_crosses <- variables[5]
 nbcores <- as.numeric(variables[6])
 titre_variance_crosses_chr <- variables[7]
 r_big_files <- variables[8]
+population <- variables[9]
+type <- variables[10]
+
+ID=paste0(type,"_",chr,"_",population)
+
+  
+
+ # chr <- "1A"                                                                                                            
+ # titre_markers_filtered_subset_estimated <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/markers_filtered_estimated.txt"        
+ # titre_genotyping_matrix_filtered_imputated_subset <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/genotyping_matrix_filtered_imputed.txt"
+ # titre_lines <-"/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"                                          
+ # titre_function_calcul_index_variance_crosses <- "/work/adanguy/these/croisements/scripts/calcul_index_variance_crosses.R"                                       
+ # nbcores <- 1                                                                                                         
+ # titre_variance_crosses_chr <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/variance_crosses_chr/variance_crosses_1A.txt" 
+ # r_big_files <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/variance_crosses_chr/big_matrix/"  
+ # population <- "WE"
+ # type="marker_simFALSE_10cm"
 
 
-# chr <- "1A"                                                                                                            
-# titre_markers_filtered_subset_estimated <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/markers_estimated_qtls_estimated.txt"        
-# titre_genotyping_matrix_filtered_imputated_subset <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/genotyping_matrix_filtered_imputed.txt"
-# titre_lines <-"/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"                                          
-# titre_function_calcul_index_variance_crosses <- "/work/adanguy/these/croisements/scripts/calcul_index_variance_crosses.R"                                       
-# nbcores <- 1                                                                                                         
-# titre_variance_crosses_chr <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/variance_crosses_chr/variance_crosses_1A.txt" 
-# r_big_files <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/variance_crosses_chr/big_matrix/"  
-# population <- "WE"
-# effect="qe_allcm_h0.8_r1"
-
-
-backingfile1 <- paste0(r_big_files, "big_matrix_1_",chr)
-backingfile2 <- paste0(r_big_files, "big_matrix_2_",chr)
-backingfile3 <- paste0(r_big_files, "big_matrix_3_",chr)
-backingfile4 <- paste0(r_big_files, "big_matrix_4_",chr)
-backingfile5 <- paste0(r_big_files, "big_matrix_5_",chr)
-backingfile6 <- paste0(r_big_files, "big_matrix_6_",chr)
-backingfile7 <- paste0(r_big_files, "big_matrix_7_",chr)
-backingfile8 <- paste0(r_big_files, "big_matrix_8_",chr)
+backingfile1 <- paste0(r_big_files, "big_matrix_1_",ID)
+backingfile2 <- paste0(r_big_files, "big_matrix_2_",ID)
+backingfile3 <- paste0(r_big_files, "big_matrix_3_",ID)
+backingfile4 <- paste0(r_big_files, "big_matrix_4_",ID)
+backingfile5 <- paste0(r_big_files, "big_matrix_5_",ID)
+backingfile6 <- paste0(r_big_files, "big_matrix_6_",ID)
+backingfile7 <- paste0(r_big_files, "big_matrix_7_",ID)
+backingfile8 <- paste0(r_big_files, "big_matrix_8_",ID)
 
 
 
@@ -72,7 +77,7 @@ backingfile8 <- paste0(r_big_files, "big_matrix_8_",chr)
 cat("\n\n INPUT : genotyping matrix updated \n\n")
 geno <- fread(titre_genotyping_matrix_filtered_imputated_subset)
 geno[1:10,1:10]
-# column 1 = LINE2 = modified ID for variety (string, 840 levels)
+# column 1 = ID = modified ID for variety (string, 840 levels)
 # column 2 - 19751 = genotype at each SNP
 # dimension: 840 * 19 751
 dim(geno)
@@ -94,7 +99,7 @@ head(markers)
 cat("\n\n INPUT : prediction of GEBV from marker effect \n\n")
 lines <- fread(titre_lines)
 head(lines)
-# column 1 = LINE2 = modified ID for variety (string, 840 levels)
+# column 1 = ID = modified ID for variety (string, 840 levels)
 # column 3 = predicted GEBV from blupf90
 # coumn 2 : no importance here
 # dimension: 840 * 3
@@ -119,9 +124,9 @@ nind = nrow(geno)
 
 
 # lines ID
-liste_lines <- lines %>% filter(used_as_parent==T) %>%
-  dplyr::select(line2) %>%
-  arrange(line2) %>%
+liste_lines <- lines %>% filter(used_as_parent==T & generation==0 & type=="pheno_simFALSE") %>%
+  arrange(ID) %>%
+  dplyr::select(ID) %>%
   unlist() %>%
   as.vector()
 
@@ -131,9 +136,11 @@ rm(lines)
 
 ################### sepcific of chr
 colonnes_geno_chr <- markers %>%
-  arrange(chr, pos) %>%
-  mutate(ligne=1:n()) %>%
+  arrange(chr, pos, marker, population) %>%
+  filter(population==!!population) %>%
+  filter(type==!!type) %>%
   filter(chr==!!chr) %>%
+  filter(value !=0) %>%
   dplyr::select(marker) %>%
   unlist() %>%
   as.vector()
@@ -147,26 +154,33 @@ nmark_chr=length(colonnes_geno_chr)
 
 #### vcov
 
-calcul_variance_crosses_chr <- function(population, effect){
+calcul_variance_crosses_chr <- function(population, type, chr){
   
-  set.seed(1)
-  
-  colonne_genetic_map_population <- colnames(markers)[grep(population,colnames(markers))]
 
   
   
+  v_cov <- markers %>%
+    arrange(chr, pos, marker, population) %>%
+    filter(population==!!population) %>%
+    filter(type==!!type) %>%
+    filter(chr==!!chr)  %>%
+    filter(value !=0)
+
   
-  v_cov <- markers %>% filter(chr ==!!chr)
-  v_cov <- sapply(1:nrow(v_cov),function(x) abs(v_cov[x, colonne_genetic_map_population] - v_cov[,colonne_genetic_map_population]) )
+  v_cov <- sapply(1:nrow(v_cov),function(x) abs(v_cov[x, "dcum"] - v_cov[,"dcum"]) )
   v_cov <- 0.5*(1-exp(-2*(v_cov/100))) # Haldane mappinf function reciproc
   v_cov <- (1-2*v_cov)/4
   diag(v_cov) <- 0.25 
   suppressWarnings(file.remove(paste0(backingfile1, ".rds"), paste0(backingfile1, ".bk"))) 
   v_cov <- as_FBM(v_cov, backingfile = backingfile1) 
   
-  effect_chr <- markers %>% filter(chr ==!!chr) %>% 
-    arrange(chr, pos) %>%
-    dplyr::select(one_of(effect)) %>%
+  effect_chr <- markers %>%
+    arrange(chr, pos, marker, population) %>%
+    filter(population==!!population) %>%
+    filter(type==!!type) %>%
+    filter(chr==!!chr) %>% 
+    filter(value !=0) %>%
+    dplyr::select(one_of("value")) %>%
     unlist() %>%
     as.vector()
   
@@ -205,7 +219,7 @@ calcul_variance_crosses_chr <- function(population, effect){
   
   
   suppressWarnings(file.remove(paste0(backingfile4, ".rds"), paste0(backingfile4, ".bk"))) # should write a warning message
-  geno_chr <- as_FBM(geno %>% arrange(line2) %>% dplyr::select(all_of(colonnes_geno_chr)), backingfile = backingfile4) # fast
+  geno_chr <- as_FBM(geno %>% arrange(ID) %>% dplyr::select(all_of(colonnes_geno_chr)), backingfile = backingfile4) # fast
   big_apply(geno_chr, a.FUN = function(geno_chr, ind) {
     geno_chr[, ind] <- na.zero(geno_chr[,ind]) 
     NULL  }
@@ -292,31 +306,14 @@ calcul_variance_crosses_chr <- function(population, effect){
   suppressWarnings(file.remove(paste0(backingfile7, ".rds"), paste0(backingfile7, ".bk"))) # should write a warning message
   suppressWarnings(file.remove(paste0(backingfile8, ".rds"), paste0(backingfile8, ".bk"))) # should write a warning message
   
-  lines_to_keep <- calcul1(nind)
-  
-
-  
-  
-  
-  
-  # output
-  # tab <- cbind(crosses_names[1:maxi,], sd) %>%
-  #   mutate(chr=chr)
-  name=paste0("sd_", population,"_", effect)
-  tab[,name] <- sd
-  
-  output <- tab %>%
-    mutate(chr=chr) %>%
-    arrange(P1, P2) %>%
-    dplyr::select(one_of(name)) %>%
-    unlist() %>%
-    as.vector()
+ 
   
   return(sd)
   
   
   
 }
+sd <- calcul_variance_crosses_chr(population=population, type=type, chr=chr)
 
 
 lines_to_keep <- calcul1(nind)
@@ -324,44 +321,35 @@ lines_to_keep <- calcul1(nind)
 suppressWarnings(crosses_names <-  expand.grid(unlist(liste_lines[1:nind]),
                                                unlist(liste_lines[1:nind])) %>%
                    rename(P.x=Var1, P.y=Var2) %>%
-                   inner_join(data.frame(line2=liste_lines) %>%
+                   inner_join(data.frame(ID=liste_lines) %>%
                                 
-                                mutate(ordre.x=1:n()), by=c("P.x"="line2"))%>%
-                   inner_join(data.frame(line2=liste_lines) %>%
+                                mutate(ordre.x=1:n()), by=c("P.x"="ID"))%>%
+                   inner_join(data.frame(ID=liste_lines) %>%
                                 
-                                mutate(ordre.y=1:n()), by=c("P.y"="line2")) %>%
+                                mutate(ordre.y=1:n()), by=c("P.y"="ID")) %>%
                    mutate(P1=ifelse(ordre.x < ordre.y, as.character(P.x), as.character(P.y))) %>%
                    mutate(P2=ifelse(ordre.y < ordre.x, as.character(P.x), as.character(P.y))) %>%
                    dplyr::select(P1,P2) %>%
                    slice(lines_to_keep))
-tab <- data.frame(P1=crosses_names$P1, P2=crosses_names$P2, chr=chr)
+tab <- data.frame(P1=crosses_names$P1, P2=crosses_names$P2, chr=chr, type=type, sd=sd) %>%
+  arrange(P1, P2)
 
 
-populations <- gsub("dcum_","",colnames(markers)[grep("dcum", colnames(markers))])
-effects <- sort(colnames(markers)[grep("q", colnames(markers))])
 
-for (population in populations){
-  
-  for (effect in effects){
     
     
-    tab[, paste0("sd_", population, "_",effect)] <- calcul_variance_crosses_chr(population=population, effect=effect)
-    print(head(tab))
-    
-  }
-  
-}
-  
+
 
 # tab <- cbind(crosses_names, sd) %>%
 #   mutate(chr=chr) 
 
 cat("\n\nOUTPUT : variance of crosses and other performances \n\n")
 head(tab)
+tail(tab)
 dim(tab)
 write_delim(tab, titre_variance_crosses_chr, col_names = T, delim="\t", append = F, na="NA", quote_escape="none")
-# column 1 = p1 = modified ID of variety (line2) = first parent (string, 840 -1 levels)
-# column 2 = p2 = modified ID of variety (line2) = second parent (string, 840 -1 levels)
+# column 1 = p1 = modified ID of variety (ID) = first parent (string, 840 -1 levels)
+# column 2 = p2 = modified ID of variety (ID) = second parent (string, 840 -1 levels)
 # column 3 = u = average gebv of parents (from bluf90) (numeric)
 # column 4 = sd = sd of progeny gebv (numeric)
 # column 5 = log_w = probability to produce a progeny whose gebv is lower than a treshold

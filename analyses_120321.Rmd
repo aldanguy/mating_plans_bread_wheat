@@ -1,0 +1,1990 @@
+---
+title: "analyses_120321"
+author: "Alice Danguy des Déserts"
+date: "22 mars 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+
+
+
+
+Sys.time()
+cat("\n\analysis.R\n\n")
+rm(list = ls())
+graphics.off()
+set.seed(1)
+t1 <- Sys.time()
+
+
+suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(compiler))
+suppressPackageStartupMessages(library(ggpubr))
+suppressPackageStartupMessages(library(MASS))
+suppressPackageStartupMessages(library(viridis))
+suppressPackageStartupMessages(library(ggplot2))
+
+
+
+variables <- commandArgs(trailingOnly=TRUE)
+cat("\n\nVariables : \n")
+print(variables)
+cat("\n\n")
+
+
+
+
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines <- variables[3]
+titre_ped <- variables[4]
+titre_best_crosses <- variables[5]
+titre_lines_pred <- variables[6]
+titre_pedigree_pred <- variables[7]
+titre_lines_parents <- variables[8]
+
+extraction <- function(string, character_split, number){
+  
+  out <- as.vector(unlist(strsplit(string, split=character_split)))
+  
+  if (number > length(out)){
+    
+    out <- NA
+  } else {
+    
+    out <- out[number]
+  }
+  
+  return(out)
+  
+}
+
+get_density <- function(x, y, ...) {
+  dens <- MASS::kde2d(x, y, ...)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, results=FALSE)
+
+
+```
+
+
+## Question : Quel est le gain génétique permis par l'optimisation des croisements dans le cadre d'un programme de sélection réaliste ?
+
+
+## Plan 
+
+# Partie 1 : application à un programme de sélection réel
+
+A) Précision des estimateurs
+
+B) Relation entre estimateurs
+
+C) Overlapp entre critères
+
+D) Gain génétique 
+
+E) Couples et parents à l'origine des élites
+
+
+# Partie 2 : simulation de QTLs
+
+A) Effet de l'architecture sur la variance. 
+
+B) Effet de l'estimation
+
+C) Gain génétique avec différentes niveaux d'information 
+
+
+
+
+
+
+# Partie 1 : application à un programme de sélection réel
+
+Contraintes :
+
+D = 3300 = nb de descendants
+
+Pmax = 132 = nb de parents
+
+Pmin = 100
+
+Kmax = 300 = nb de couples
+
+Kmin = 200
+
+Cmax = 250 = nb de descendants par parent
+
+Rappels: 
+
+gebv = choix des couples sur le gebv moyen des parents
+
+logw = choix sur probabilité produire un descendant > gebv meilleure lignée parentale
+
+uc = choix sur UC (UC = gebv + i*sd avec i correspondant à un taux de sélection = 7%, soit i ~ 1.98)
+
+uc_extreme = choix sur UC (avec i correspondant à un taux de sélection = 0.01%, soit i ~ 3.96)
+
+# A) Précision des estimateurs
+
+Est-ce que nos critères (gebv, logc, uc, uc_extreme) fonctionnent pour prédire les caractériques de la descendance ?
+
+J'ai pris 200 couples et 1000 descendants/couple.
+
+Les couples ont été choisis de manière à explorer la gamme de valeur de chauqe critère.
+
+```{r 1A}
+variables <- commandArgs(trailingOnly=TRUE)
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines <- variables[3]
+titre_ped <- variables[4]
+titre_best_crosses <- variables[5]
+titre_lines_pred <- variables[6]
+titre_pedigree_pred <- variables[7]
+titre_lines_parents <- variables[8]
+
+l1 <- fread(titre_lines_pred) %>%
+  dplyr::select(ID, value)
+
+
+p1 <- fread(titre_pedigree_pred) %>%
+  dplyr::select(ID, P1, P2)
+
+c1 <- fread(titre_crosses_WE) %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  dplyr::select(P1, P2, gebv, sd, logw, uc, uc_extreme) %>%
+  mutate(logw=1 - 10^logw)
+
+best_parental_line <- fread(titre_lines_parents) %>%
+  filter(type=="gebv_simFALSE_allcm") %>% 
+  dplyr::select(value) %>%
+  unlist() %>%
+  as.vector() %>%
+  max()
+
+f1 <- l1 %>%
+  inner_join(p1, by=c("ID")) %>%
+  group_by(P1, P2) %>%
+  mutate(sup_best_parent=ifelse(value >= best_parental_line, 1, 0)) %>%
+  mutate(sup_best_parent=sum(sup_best_parent)/n()) %>%
+  mutate(superior_fraction=quantile(value, 0.93)) %>%
+  mutate(sup_superior_fraction=ifelse(value >= superior_fraction, value, NA)) %>%
+  mutate(superior_fraction_extreme=quantile(value, 1e-4)) %>%
+  mutate(sup_superior_fraction_extreme=ifelse(value >= superior_fraction_extreme, value, NA)) %>%
+  summarise(gebvo=mean(value), 
+            sdo=sd(value), 
+            uco=mean(sup_superior_fraction, na.rm=T), 
+            uc_extremeo=mean(sup_superior_fraction_extreme, na.rm=T), 
+            logwo=unique(sup_best_parent)) %>%
+  inner_join(c1, by=c("P1","P2"))
+  
+pred_gebv <- f1 %>%
+  ggplot(aes(x=gebv, y=gebvo)) +
+  geom_point()+
+  geom_abline(slope=1, intercept = 0, col="red") +
+  theme_light() +
+  xlab("expected") +
+  ylab("observed")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  ggtitle("Mean of progeny")
+
+pred_sd <- f1 %>%
+  ggplot(aes(x=sd, y=sdo)) +
+  geom_point()+
+  geom_abline(slope=1, intercept = 0, col="red") +
+  theme_light() +
+  xlab("expected") +
+  ylab("observed")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  ggtitle("Variability of progeny")
+
+
+pred_uc <- f1 %>%
+  ggplot(aes(x=uc, y=uco)) +
+  geom_point()+
+  geom_abline(slope=1, intercept = 0, col="red") +
+  theme_light() +
+  xlab("expected") +
+  ylab("observed")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  ggtitle("UC (q = 0.7%)")
+
+
+pred_uc_extreme <- f1 %>%
+  ggplot(aes(x=uc_extreme, y=uc_extremeo)) +
+  geom_point()+
+  geom_abline(slope=1, intercept = 0, col="red") +
+  theme_light() +
+  xlab("expected") +
+  ylab("observed")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  ggtitle("UC (q = 0.01%)")
+
+pred_logw <- f1 %>%
+  ggplot(aes(x=logw, y=logwo)) +
+  geom_point()+
+  geom_abline(slope=1, intercept = 0, col="red") +
+  theme_light() +
+  xlab("expected") +
+  ylab("observed")+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Proba > best parent")
+
+
+ggarrange(pred_gebv, pred_sd, pred_uc, pred_uc_extreme, pred_logw, ncol=2, nrow=1)
+
+rm(list = ls())
+
+```
+
+
+# B) Relation entre estimateurs
+
+Doit t-on s'attendre à une forte corrélation entre plan de croisements issus de différents critères ?
+
+```{r 1B}
+variables <- commandArgs(trailingOnly=TRUE)
+
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines <- variables[3]
+titre_ped <- variables[4]
+titre_best_crosses <- variables[5]
+titre_lines_pred <- variables[6]
+titre_pedigree_pred <- variables[7]
+titre_lines_parents <- variables[8]
+
+get_density <- function(x, y, ...) {
+  dens <- MASS::kde2d(x, y, ...)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+
+
+c2 <- fread(titre_crosses_WE) %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  dplyr::select(P1, P2, gebv, sd, logw, uc, uc_extreme) 
+
+
+gebv_sd <- c2 %>%
+  mutate(density=get_density(gebv, sd, n = 100)) %>%
+  #slice(1:1000) %>% # to remove
+  ggplot(aes(x=gebv, y=sd, col=density)) +
+  geom_point()+
+  theme_light() +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny")+
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_color_viridis()
+
+
+gebv_logw <- c2 %>%
+  #slice(1:1000) %>% # to remove
+  ggplot(aes(x=gebv, y=logw)) +
+  geom_point()+
+  theme_light() +
+  xlab("expected mean of progeny") +
+  ylab("Proba < best parent (log10)")+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_smooth(method="loess", col="blue", se=FALSE)
+
+gebv_uc <-c2 %>%
+  dplyr::select(P1, P2, gebv, uc, uc_extreme) %>%
+  pivot_longer(cols = c("uc","uc_extreme")) %>%
+  mutate(name=case_when(name=="uc"~"q = 7%",
+                        name=="uc_extreme"~ "q = 0.01%")) %>%
+  mutate(name=factor(name, levels=c("q = 7%", "q = 0.01%"))) %>%
+  #slice(1:10000) %>% #to remove
+  ggplot(aes(x=gebv, y=value, col=name)) + 
+  geom_point() +
+  theme_light() +
+  xlab("gebv") +
+  ylab("UC") +
+  facet_grid(.~name) +
+  geom_abline(slope=1, intercept = 0, col="red") +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"),
+        legend.position = "none") +
+  scale_color_manual(name="", values = rev(c("#F8766D", "#00BFC4")))
+
+
+
+ggarrange(gebv_sd, gebv_logw, gebv_uc, ncol=1, nrow=1)
+
+rm(list = ls())
+
+```
+
+On remarque la forte corrélation entre gebv et uc, y compris uc_extreme (où la variance a + de poids). 
+
+On remarque la relation non linéaire entre gebv et logw. 
+
+
+# C) Overlapp entre critères
+
+Les couples choisis sont-ils les mêmes entre les différents critères ?
+
+```{r 1C}
+variables <- commandArgs(trailingOnly=TRUE)
+
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines <- variables[3]
+titre_ped <- variables[4]
+titre_best_crosses <- variables[5]
+titre_lines_pred <- variables[6]
+titre_pedigree_pred <- variables[7]
+titre_lines_parents <- variables[8]
+
+
+
+c3 <- fread(titre_crosses_WE) %>%
+  filter(type=="marker_simFALSE_allcm") %>% 
+  dplyr::select(P1, P2, gebv, sd, logw, uc, uc_extreme) %>%
+  arrange(desc(gebv))
+
+
+b3 <- fread(titre_best_crosses)  %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  filter(affixe=="real")  %>%
+  dplyr::select(P1, P2, critere, nbprogeny)  %>%
+  pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "nbprogeny") %>%
+  mutate(choosen=case_when(!is.na(gebv) & !is.na(logw) & !is.na(uc) & is.na(uc_extreme)~ "gebv+uc+logw+uc_extreme",
+                           is.na(gebv) & !is.na(logw) & !is.na(uc) & is.na(uc_extreme) ~ "uc+logw",
+                           is.na(gebv) & is.na(logw) & !is.na(uc) & is.na(uc_extreme)~ "uc",
+                           is.na(gebv) & !is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "logw",
+                           !is.na(gebv) & is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "gebv",
+                           !is.na(gebv) & !is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "gebv+logw",
+                           !is.na(gebv) & is.na(logw) & !is.na(uc) & is.na(uc_extreme)~ "gebv+uc",
+                           is.na(gebv) & is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "none",
+                           is.na(gebv) & !is.na(logw) & !is.na(uc) & !is.na(uc_extreme) ~ "uc+logw+uc_extreme",
+                           is.na(gebv) & is.na(logw) & !is.na(uc) & !is.na(uc_extreme)~ "uc+uc_extreme",
+                           is.na(gebv) & !is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "logw+uc_extreme",
+                           !is.na(gebv) & is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "gebv+uc_extreme",
+                           !is.na(gebv) & !is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "gebv+logw+uc_extreme",
+                           !is.na(gebv) & is.na(logw) & !is.na(uc) & !is.na(uc_extreme)~ "gebv+uc+uc_extreme",
+                           is.na(gebv) & is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "uc_extreme",
+                           is.na(gebv) & is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "none")) %>%
+  dplyr::select(P1, P2, choosen, gebv, logw, uc, uc_extreme) %>%
+  rename(gebv_progeny=gebv, logwprogeny=logw, ucprogeny=uc, uc_extremeprogeny=uc_extreme) %>%
+  mutate(gebv_progeny=ifelse(gebv_progeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+  mutate(ucprogeny2=ifelse(ucprogeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+  mutate(uc_extremeprogeny=ifelse(uc_extremeprogeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+  mutate(logwprogeny=ifelse(logwprogeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+  mutate(gebv_progeny=factor(gebv_progeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+  mutate(ucprogeny=factor(ucprogeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+  mutate(uc_extremeprogeny=factor(uc_extremeprogeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+  mutate(logwprogeny=factor(logwprogeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+  
+           
+  inner_join(c3, by=c("P1","P2")) 
+
+
+gebv <- c3 %>%
+  #slice(1:1000) %>% # to remove
+  ggplot(aes(x=gebv, y=sd)) +
+  geom_point()+
+  theme_light() +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny")+
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  geom_point(data=b3 %>% filter(grepl("gebv", choosen)), aes(x=gebv, y=sd, col="choosen"), size=2) +
+  scale_color_manual(values=c("#7CAE00"), name="")+
+  theme(legend.position="none") +
+  ggtitle("gebv")
+
+uc <- c3 %>%
+  #slice(1:1000) %>% # to remove
+  ggplot(aes(x=gebv, y=sd)) +
+  geom_point()+
+  theme_light() +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny")+
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  geom_point(data=b3 %>% 
+               filter(!is.na(choosen)) %>%
+               mutate(choosen=paste0(choosen,"+")) %>%
+               filter(grepl(pattern="+uc", x=choosen) | grepl("+uc+", choosen) | grepl("uc+", choosen)) , 
+             aes(x=gebv, y=sd, size=ifelse(ucprogeny=="nbprogeny>30", 5, 2), col="choosen"), size=2) +
+  theme(legend.position="none") +
+  scale_color_manual(values=c("#00BFC4"))+
+  ggtitle("UC (q = 7%)")
+
+
+logw <- c3 %>%
+  #slice(1:1000) %>% # to remove
+  ggplot(aes(x=gebv, y=sd)) +
+  geom_point()+
+  theme_light() +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny")+
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  geom_point(data=b3 %>% filter(grepl("logw", choosen)), aes(x=gebv, y=sd, col="choosen"), size=2) +
+  theme(legend.position="none") +
+  scale_color_manual(values=c("#C77CFF"))+
+  ggtitle("logw")
+
+uc_extreme <- c3 %>%
+ # slice(1:1000) %>% # to remove
+  ggplot(aes(x=gebv, y=sd)) +
+  geom_point()+
+  theme_light() +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny")+
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  geom_point(data=b3 %>% filter(grepl("uc_extreme", choosen)), aes(x=gebv, y=sd, col="choosen"), size=2) +
+  theme(legend.position="none") +
+  scale_color_manual(values=c("#F8766D")) +
+  ggtitle("UC (q = 0.01%)")
+
+
+all <- c3 %>%
+  #slice(1:1000) %>% # to remove
+  ggplot(aes(x=gebv, y=sd)) +
+  geom_point()+
+  theme_light() +
+  xlab("expected mean of progeny") +
+  ylab("expected sd of progeny")+
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  geom_point(data=b3 %>% filter(!is.na(choosen)), aes(x=gebv, y=sd, col=choosen), size=2) +
+  ggtitle("all")
+
+
+ggarrange(gebv, logw, uc, uc_extreme, all, ncol=1, nrow=1)
+
+rm(list = ls())
+
+```
+
+
+
+
+On remarque que le couple élite a droite n'a pas été choisi pour gebv et uc.
+
+Pour forcer ce choix, il faut augmenter Cmax.
+
+Tentative d'explication : 
+
+Dans le cas de gebv (et de l'UC, très corrélé à gebv), chaque parent apporte une quantité additive q.
+On imagine qu'il y a des parents élites qui transmettent une forte quantité additive q+ et d'autres une plus faible quantité q-.
+Si les meilleurs parents ne peuvent avoir qu'un nombre limité de descendants, on a deux options :
+
+Option 1 : Soit on accouple les élites entre eux jusqu'à saturer leur contribution, puis les mauvais parents entre eux -> la somme des quantités additives impliquées est pas terrible
+
+Option 2 : Soit on accouple les élites avec des mauvais parents (jusqu'à saturation). Cependant, on devra prendre des parents moins mauvais que dans l'option 1. -> la somme des quantités additives impliquées est meilleure
+
+Autrement dit, l'option 1 revient à faire appel a de mauvais parents
+
+Petit exemple :
+
+P1 : gebv = +10
+
+P2 : gebv = +9
+
+P3 : gebv = +8
+
+P4 : gebv = +7
+
+P5 : gebv = +6
+
+P6 : gebv = +5
+
+contrainte : un parent de peut pas avoir plus de 120 descendants ; il doit y avoir 4 couples ; avec 60 descendants / couple
+
+Rq : La moyenne de la descendance vaut la moyenne des parents (Px + Py)/2. Pour simplifier, je dis que la moyenne de la descendance vaut la somme des parents (Px + Py). Ca ne change rien dans le classement (la fitness) entre option 1 et option 2 car le même nombre de couples figurera dans le plan de croisements final.
+
+Option 1 :
+
+P1 + P2 -> valeur descendance = 10 + 9 -> 60 descendants
+
+P1 + P3 -> 10 + 8 -> 60 descendants
+
+P2 + P3 -> 9 + 8 -> 60 descendants 
+
+P4 + P5 -> 7 + 6 -> 60 descendants
+
+Appels à P1 = 2
+
+Appels à P2 = 2
+
+Appels à P3 = 2
+
+Appel à P4 = 1
+
+Appel à P5 = 1
+
+fitness1 = (10 x 2 + 9 x 2 + 8 x 2 + 7 + 6)
+
+Option 2 :
+
+P1 + P3 -> 10 + 8 -> 60 descendants
+
+P1 + P4 -> 10 + 7 -> 60 descendants
+
+P2 + P3 -> 9 + 8 -> 60 descendants
+
+P2 + P4 -> 9 + 7 -> 60 descendants
+
+Appels à P1 = 2
+
+Appels à P2 = 2
+
+Appels à P3 = 2
+
+Appel à P4 = 2
+
+fitness2 = (10 x 2 + 9 x 2 + 8 x 2 + 7 x2)
+
+fitness2 > fitness 1 car on fait appel a P5 (le plus mauvais des parents) dans l'option 1.
+
+Rq : Si les contributions sont illimités, alors la question ne se pose plus.
+
+
+# D) Gain génétique
+
+Quel critère apporte le plus de gain :
+
+- concernant le meilleur descendant (candidat inscription)
+
+- la moyenne des 7% meilleurs descendants (lignées qui passeront de F5 à F6 chez Florimond)
+
+La barre horizontale noire indique la valeur de la meilleure lignée parentale.
+
+```{r 1D1}
+variables <- commandArgs(trailingOnly=TRUE)
+
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines <- variables[3]
+titre_ped <- variables[4]
+titre_best_crosses <- variables[5]
+titre_lines_pred <- variables[6]
+titre_pedigree_pred <- variables[7]
+titre_lines_parents <- variables[8]
+
+l4 <- fread(titre_lines) %>%
+  filter(type=="marker_simFALSE_allcm") %>% 
+  filter(affixe=="real") %>%
+  mutate(rr=as.factor(rr)) %>%
+  mutate(critere=ifelse(critere=="uc", "UC q = 7%", critere)) %>%
+  mutate(critere=ifelse(critere=="uc_extreme", "UC q = 0.01%", critere)) %>%
+  mutate(critere=factor(critere, levels=c("gebv","logw", "UC q = 7%", "UC q = 0.01%"))) %>%
+  group_by(critere, rr) %>%
+  mutate(sd_progeny=sd(gebv)) %>%
+  mutate(mean_progeny=mean(gebv)) %>%
+  mutate(q0.93=quantile(gebv, 0.93)) %>%
+  filter(gebv >= q0.93) %>%
+  summarise(best=max(gebv), 
+            mean=mean(gebv), 
+            mean_progeny=unique(mean_progeny), 
+            sd_progeny=unique(sd_progeny)) %>%
+  ungroup()
+
+
+
+p4 <- fread(titre_ped) %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  filter(affixe=="real") %>%
+  dplyr::select(ID, P1, P2, critere, rr)
+
+c4 <- fread(titre_crosses_WE) %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  arrange(desc(gebv)) %>%
+  mutate(rank_gebv=1:n())
+
+l4best <- fread(titre_lines) %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  filter(affixe=="real") %>%
+  group_by(critere, rr) %>%
+  mutate(best=max(gebv)) %>%
+  filter(gebv==best) %>%
+  dplyr::select(ID, rr, critere, gebv)%>% 
+  inner_join(p4, by=c("ID","critere","rr")) %>%
+  ungroup() %>%
+  dplyr::select(P1, P2, critere, rr) %>%
+  arrange(P1, P2) %>%
+  inner_join(c4, by=c("P1","P2")) %>%
+  dplyr::select(P1, P2, rank_gebv, gebv, sd, logw, uc, uc_extreme, critere, rr)
+
+
+
+l4topmean <- fread(titre_lines) %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  filter(affixe=="real") %>%
+  group_by(critere, rr) %>%
+  mutate(q0.93 = quantile(gebv, 0.93)) %>%
+  filter(gebv >= q0.93) %>%
+  dplyr::select(ID, rr, critere, gebv)%>% 
+  inner_join(p4, by=c("ID","critere","rr")) %>%
+  ungroup() %>%
+  dplyr::select(P1, P2, critere, rr) %>%
+  arrange(P1, P2) %>%
+  full_join(c4, b=c("P1","P2")) %>%
+  dplyr::select(P1, P2, rank_gebv, gebv, sd, logw, uc, uc_extreme, critere, rr)
+
+best_parental_line <- fread(titre_lines_parents) %>%
+  filter(type=="gebv_simFALSE_allcm") %>% 
+  dplyr::select(value) %>%
+  unlist() %>%
+  as.vector() %>%
+  max()
+
+best <- l4 %>% 
+  ggplot(aes(x=critere, y=best, col=critere)) +
+  geom_boxplot() +
+  geom_point()+
+  theme_light() +
+  ylab("EBV")+
+  xlab("")+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Best progeny")+
+  theme(legend.position = "none")+
+  geom_hline(yintercept = best_parental_line) +
+  scale_color_manual(values=c("#7CAE00","#C77CFF","#00BFC4","#F8766D"))
+
+topmean <- l4 %>% 
+  ggplot(aes(x=critere, y=mean, col=critere)) +
+  geom_boxplot() +
+  geom_point()+
+  theme_light() +
+  ylab("EBV")+
+  xlab("")+
+  geom_hline(yintercept = best_parental_line) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Mean of top 7% progeny")+
+  theme(legend.position = "none")+
+  scale_color_manual(values=c("#7CAE00","#C77CFF","#00BFC4","#F8766D"))
+
+
+
+mean <- l4 %>% 
+  ggplot(aes(x=critere, y=mean_progeny, col=critere)) +
+  geom_boxplot() +
+  geom_point()+
+  theme_light() +
+  ylab("EBV")+
+  xlab("")+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Mean of all progeny")+
+  theme(legend.position = "none")+
+  scale_color_manual(values=c("#7CAE00","#C77CFF","#00BFC4","#F8766D"))
+
+
+
+sd <- l4 %>% 
+  ggplot(aes(x=critere, y=sd_progeny, col=critere)) +
+  geom_boxplot() +
+  geom_point()+
+  theme_light() +
+  ylab("EBV")+
+  xlab("")+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("sd of all progeny")+
+  theme(legend.position = "none")+
+  scale_color_manual(values=c("#7CAE00","#C77CFF","#00BFC4","#F8766D"))
+
+
+
+ggarrange(best, topmean, mean, sd)
+
+
+```
+
+
+On calcule le gain comme la différence entre le gain fourni par gebv et le gain fourni par un autre critère. Autrement dit, gebv est notre référence.
+
+
+Pour le candidat inscription :
+
+```{r 1D2, results=TRUE}
+
+
+modbest <- summary(lm(best~critere, data=l4))
+modbest
+print("logw")
+round(coefficients(modbest)[2]/coefficients(modbest)[1],2)
+print("gain for uc 7% (%)")
+round(coefficients(modbest)[3]/coefficients(modbest)[1],2)
+print("gain for uc extreme (%)")
+round(coefficients(modbest)[4]/coefficients(modbest)[1],2)
+```
+
+Pour la moyenne des 7% meilleurs
+
+```{r 1D3, results=TRUE, echo=TRUE}
+
+modtopmean <- summary(lm(mean~critere, data=l4))
+modtopmean
+print("gain for logw (%)")
+round(coefficients(modtopmean)[2]/coefficients(modtopmean)[1],2)
+
+```
+
+
+
+
+Rq : Comment mesurer le risque de faire moins bien que gebv ?
+
+# E) couples et parents à l'origine des élites (candidats inscription)
+
+Le premier tableau = les meilleurs croisements avant optimisation
+
+Deuxième tableau = couples ayant mené aux descendants élites pour chaque critère
+
+Troisième tableau = parents ayant mené aux descendants élites pour chaque critère. 
+Chaque élite a deux parents. Le nombre de fois où un parent est compté dans le tableau = le nombre d'élite qu'il a généré à l'issue du plan de croisements. Plus ce nombre se rapproche de 10, plus cela signifie que les élites proviennent systématiquement de ce parent.
+
+On remarque que 1 parent est à l'origine de de ~ 100% des élites.
+
+On remarque que la performance de logw (le critère qui fonctionne le mieux) est du au fait qu'il appelle le meilleur couple en terme de gebv
+
+
+```{r 1D4, results=TRUE}
+
+l4parents <- fread(titre_lines_parents) %>%
+  filter(type=="gebv_simFALSE_allcm") %>%
+  arrange(desc(value)) %>%
+  mutate(rank_gebv=1:n()) %>%
+  filter(ID %in% l4best$P1 | ID %in% l4best$P2) %>%
+  dplyr::select(ID, rank_gebv)
+
+
+C <- l4best %>%
+  arrange(desc(gebv)) %>%
+  filter(!is.na(critere)) %>%
+  group_by(P1, P2, critere, rank_gebv) %>%
+  summarise(n=n()) %>%
+  pivot_wider(id_cols = c("P1","P2","rank_gebv"), values_from = "n", names_from = "critere") %>%
+  dplyr::select(P1, P2, gebv, logw, uc, uc_extreme, rank_gebv) %>%
+  arrange(rank_gebv)  %>%
+  as.data.frame()
+
+
+P1 <- l4best %>%
+  filter(!is.na(critere)) %>%
+  group_by(P1, critere) %>%
+  summarise(n=n()) %>%
+  pivot_wider(id_cols = c("P1"), values_from = "n", names_from = "critere") %>%
+  arrange(desc(gebv),  desc(logw), desc(uc)) %>%
+  dplyr::select(P1, gebv, logw, uc, uc_extreme) %>%
+  rename(P=P1) %>%
+  ungroup()
+
+P2 <- l4best %>%
+  filter(!is.na(critere)) %>%
+  group_by(P2, critere) %>%
+  summarise(n=n()) %>%
+  pivot_wider(id_cols = c("P2"), values_from = "n", names_from = "critere") %>%
+  arrange(desc(gebv),  desc(logw), desc(uc)) %>%
+  dplyr::select(P2, gebv, logw, uc, uc_extreme) %>%
+  rename(P=P2) %>%
+  ungroup()
+
+
+P <- rbind(P1, P2) %>%
+  group_by(P) %>%
+  summarise(gebv=sum(gebv, na.rm=T),
+            uc=sum(uc, na.rm=T),
+            logw=sum(logw, na.rm=T),
+            uc_extreme=sum(uc_extreme, na.rm=T)) %>%
+  inner_join(l4parents, by=c("P"="ID")) %>%
+  mutate(gebv=ifelse(gebv==0, NA, gebv))%>%
+  mutate(uc=ifelse(uc==0, NA, uc))%>%
+  mutate(logw=ifelse(logw==0, NA, logw))%>%
+  mutate(uc_extreme=ifelse(uc_extreme==0, NA, uc_extreme)) %>%
+  arrange(rank_gebv) %>%
+  as.data.frame()
+
+
+top_crosses <- c4 %>% arrange(desc(gebv)) %>% head(10) %>% as.data.frame()
+
+print(top_crosses)
+  
+print(C)
+
+print(P)
+
+C <- l4topmean %>%
+  arrange(desc(gebv)) %>%
+  filter(!is.na(critere)) %>%
+  group_by(P1, P2, critere, rank_gebv) %>%
+  summarise(n=n()) %>%
+  pivot_wider(id_cols = c("P1","P2","rank_gebv"), values_from = "n", names_from = "critere") %>%
+  dplyr::select(P1, P2, gebv, logw, uc, uc_extreme, rank_gebv) %>%
+  arrange(rank_gebv)  %>%
+  ungroup() %>%
+  summarise(rank_gebv_moy = round(sum(gebv*rank_gebv, na.rm=T)/sum(gebv, na.rm=T)),
+            rank_logw_moyen = round(sum(logw*rank_gebv, na.rm=T)/sum(logw, na.rm=T)),
+            rank_uc_moy = round(sum(uc*rank_gebv, na.rm=T)/sum(uc, na.rm=T)),
+            rank_uc_extreme_moy = round(sum(uc_extreme*rank_gebv, na.rm=T)/sum(uc_extreme, na.rm=T))) %>%
+  as.data.frame()
+
+
+print(C)
+
+
+
+```
+
+Comment mesurer les caractéristiques des couples ayant mené à des descendants élites ?
+ = couples avec une forte gebv et/ou forte variance ?
+ 
+
+
+# Conclusion :
+
+
+Dans ce plan de croisements, pour faire du descendant élite, il faut accoupler des élites.
+
+Gain avec logw ~ 10% car fait appel au meilleur couple ; gain avec UC ~ 3%
+
+Si on utilise un logiciel d'optimisation, il vaut mieux utiliser logw car il est gère mieux les contraintes pour produire du descendant élite. On perd légèrement en qualité globale de population de descendants, mais le meilleur descendant ou la moyenne des top descendants augmente bien.
+
+UC apporte un bénéfice, mais pas beaucoup. 
+
+
+Pour faire des descendants élites, peut-on proposer autre chose que de croiser les 2 lignées les + élites entre elles ?
+
+ = Quel plan de croisements proposer pour valoriser la variance ? 
+ 
+- Augmenter Dmax ? Par exemple, passer de Dmax = 60 à Dmax=100. Mais cela apportera t-il qqchose ? Va t-on trouver des descendants beaucoup plus extrêmes en augmentant si peu Dmax ?
+
+- Faire des Rils plutôt que des HD (la variance va un peu augmenter)
+
+- Interdire l'accouplement entre parents consanguins ? (Rq : le couple élite ici présente une variance non négligeable, donc n'est pas trop consanguin)
+
+- laisser tomber les contraintes ?
+
+Rq : J'ai peur que EMBV (critère n°3) ne propose pas mieux que UC. Si on attribue Dij = Dmax = 60 descendants à un couple, son EMBV vaut gebv moyen + I * sd, avec I = 2.29. Dans nos UC, on utilise i = 1.98 ( q = 7%) et i = 3.96 (q = 0.01%). 
+Autrement dit, l'UC d'un couple est très proche de son EMBV. Donc on va retrouver le plan de croisements proposé par l'UC.
+
+Lehermeier montre que l'UC apporte un gain bien plus élevé mais
+- elle a 300 QTL et 3 000 markers
+
+- la variabilité de la variance est plus élevé (0.08 pour elle pour 150 couples élites vs 0.01 pour moi si je regarde mes 150 couples élites)
+
+- n'avait aucune contrainte
+
+## Partie 2 : Simulation de données
+
+# A) Simulation de QTLs et effet sur les critères
+
+Quel est l'effet du nombre et de l'intensité des QTLs sur les différents critères ?
+
+```{r 2A}
+variables <- commandArgs(trailingOnly=TRUE)
+
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines <- variables[3]
+titre_ped <- variables[4]
+titre_best_crosses <- variables[5]
+titre_lines_pred <- variables[6]
+titre_pedigree_pred <- variables[7]
+titre_lines_parents <- variables[8]
+
+
+extraction <- function(string, character_split, number){
+  
+  out <- as.vector(unlist(strsplit(string, split=character_split)))
+  
+  if (number > length(out)){
+    
+    out <- NA
+  } else {
+    
+    out <- out[number]
+  }
+  
+  return(out)
+  
+}
+markers <- fread(titre_markers) %>%
+  filter(grepl("simTRUE", type))  %>%
+  filter(population=="WE") %>%
+  dplyr::select(-population, -dcum) %>%
+  rowwise() %>%
+  mutate(h=extraction(type, "_", 4)) %>%
+  mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+  mutate(case=ifelse(h=="estimated",5,4)) %>%
+  mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+  mutate(subset=extraction(type, "_", 3)) %>%
+  ungroup() %>%
+  dplyr::select(-type, -case) %>%
+  pivot_wider(id_cols = c("chr","region", "pos", "marker", "subset","r"), values_from = "value", names_from = "h") %>%
+  mutate(subset=factor(subset, levels=c("allcm", "20cm","chrcm")))%>%
+  mutate(r=as.factor(r)) %>%
+  filter(true !=0) 
+
+
+
+# markers <- fread(titre_markers) %>%
+#   filter(grepl("simTRUE", type))  %>%
+#   filter(population=="WE") %>%
+#   dplyr::select(-population, -dcum) %>%
+#   filter(type %in% c("marker_simTRUE_20cm_r2", # to remove
+#                      "marker_simTRUE_20cm_r1", 
+#                      "marker_simTRUE_allcm_r2", 
+#                      "marker_simTRUE_allcm_r1",
+#                      "marker_simTRUE_chrcm_r1",      
+#                      "marker_simTRUE_20cm_h0.8_r1", 
+#                      "marker_simTRUE_allcm_h0.8_r2", 
+#                      "marker_simTRUE_allcm_h0.8_r1",
+#                      "marker_simTRUE_chrcm_r1",
+#                      
+#                      "marker_simTRUE_chrcm_r2"))%>%
+#   rowwise() %>%
+#   mutate(h=extraction(type, "_", 4)) %>%
+#   mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+#   mutate(case=ifelse(h=="estimated",5,4)) %>%
+#   mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+#   mutate(subset=extraction(type, "_", 3)) %>%
+#   ungroup() %>%
+#   dplyr::select(-type, -case) %>%
+#   pivot_wider(id_cols = c("chr","region", "pos", "marker", "subset","r"), values_from = "value", names_from = "h") %>%
+#   mutate(subset=factor(subset, levels=c("allcm", "20cm","chrcm")))%>%
+#   mutate(r=as.factor(r)) %>%
+#   filter(true !=0) 
+
+
+markers_false <- fread(titre_markers) %>%
+  filter(type=="marker_simFALSE_allcm")  %>%
+  filter(population=="WE") %>%
+  mutate(r="real") %>%
+  mutate(subset="real data") %>%
+  rename(true=value) %>%
+  dplyr::select(chr, region, pos, marker,subset, r,true)
+
+
+
+
+
+m <- rbind(markers %>% dplyr::select(-estimated) %>%  mutate(r="simulated"), markers_false) %>%
+  mutate(r=factor(r, levels=c("simulated","real"))) %>%
+  ggplot(aes(x=subset, y=true, col=r)) + geom_boxplot()+
+  theme_light() +
+  xlab("Number QTLs") +
+  ylab("Effect") + guides(color=guide_legend("Data"))
+
+
+m
+
+
+
+
+# c6 <- fread(titre_crosses_WE) %>% # to remove
+#   filter(grepl("simTRUE", type))  %>%
+#   dplyr::select(-generation, -population) %>%
+#   rowwise() %>%
+#   mutate(h=extraction(type, "_", 4)) %>%
+#   mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+#   mutate(case=ifelse(h=="estimated",5,4)) %>%
+#   mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+#   mutate(subset=extraction(type, "_", 3)) %>%
+#   ungroup() %>%
+#   dplyr::select(-type, -case) %>%
+#   pivot_longer(cols = c("gebv","uc","logw","uc_extreme", "sd"), names_to = "critere") %>%
+#   pivot_wider(id_cols = c("P1","P2","subset","critere", "r"), values_from = "value", names_from = "h") %>%
+#   mutate(subset=factor(subset, levels=c("allcm", "20cm","chrcm")))%>%
+#   mutate(r=as.factor(r))
+
+
+
+
+ c6 <- fread(titre_crosses_WE) %>%
+   filter(grepl("simTRUE", type))  %>%
+   dplyr::select(-generation, -population) %>%
+   filter(type %in% c("marker_simTRUE_20cm_r2",  #to remove
+                      "marker_simTRUE_20cm_r1", 
+                      "marker_simTRUE_allcm_r2", 
+                      "marker_simTRUE_allcm_r1",
+                      "marker_simTRUE_chrcm_r1",
+                      "marker_simTRUE_20cm_h0.8_r1", 
+                      "marker_simTRUE_allcm_h0.8_r2", 
+                      "marker_simTRUE_allcm_h0.8_r1",
+                      "marker_simTRUE_chrcm_h0.8_r1",
+                      "marker_simTRUE_chrcm_r2")) %>%
+   rowwise() %>%
+   mutate(h=extraction(type, "_", 4)) %>%
+   mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+   mutate(case=ifelse(h=="estimated",5,4)) %>%
+   mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+   mutate(subset=extraction(type, "_", 3)) %>%
+   ungroup() %>%
+   dplyr::select(-type, -case) %>%
+   pivot_longer(cols = c("gebv","uc","logw","uc_extreme", "sd"), names_to = "critere") %>%
+   pivot_wider(id_cols = c("P1","P2","subset","critere", "r"), values_from = "value", names_from = "h") %>%
+   mutate(subset=factor(subset, levels=c("allcm", "20cm","chrcm")))%>%
+   mutate(r=as.factor(r))
+
+
+c6_false <- fread(titre_crosses_WE) %>%
+  filter(type=="marker_simFALSE_allcm") %>%
+  dplyr::select(P1, P2, gebv, sd, logw, uc, uc_extreme) %>%
+  pivot_longer(cols = c("gebv","sd","logw","uc","uc_extreme"), names_to = "critere", values_to = "true") %>%
+  mutate(subset="real") %>%
+  mutate(r="real") %>%
+  dplyr::select(P1, P2, subset, critere, r, true)
+
+
+
+sd <- rbind(c6 %>% dplyr::select(-estimated) %>% mutate(r="simulated"), c6_false) %>% filter(critere=="sd") %>% 
+    mutate(r=factor(r, levels=c("simulated","real"))) %>%
+  ggplot(aes(x=subset, y = true, col=r)) +
+  geom_violin() +
+  ylab("sd (true)") +
+  theme_light() +
+  xlab("Impact of QTL number/size")+
+  ggtitle("sd") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+gebv <- rbind(c6 %>% dplyr::select(-estimated) %>% mutate(r="simulated"), c6_false) %>% filter(critere=="gebv") %>% 
+    mutate(r=factor(r, levels=c("simulated","real"))) %>%
+  ggplot(aes(x=subset, y = true, col=r)) +
+  geom_violin() +
+  ylab("gebv (true)") +
+  theme_light() +
+  xlab("Impact of QTL number/size")+
+  ggtitle("gebv") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+
+uc <- rbind(c6 %>% dplyr::select(-estimated) %>% mutate(r="simulated"), c6_false)  %>% filter(critere=="uc") %>% 
+    mutate(r=factor(r, levels=c("simulated","real"))) %>%
+  ggplot(aes(x=subset, y = true, col=r)) +
+  geom_violin() +
+  ylab("UC q = 7% (true)") +
+  theme_light() +
+  xlab("Impact of QTL number/size")+
+  ggtitle("UC q = 7%") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+uc_extreme <- rbind(c6 %>% dplyr::select(-estimated) %>% mutate(r="simulated"), c6_false)  %>% filter(critere=="uc_extreme")  %>%
+    mutate(r=factor(r, levels=c("simulated","real"))) %>%
+  ggplot(aes(x=subset, y = true, col=r)) +
+  geom_violin() +
+  ylab("UC q = 0.01% (true)") +
+  theme_light() +
+  xlab("Impact of QTL number/size")+
+  ggtitle("UC q = 0.01%") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+logw <- rbind(c6 %>% dplyr::select(-estimated)%>% mutate(r="simulated"), c6_false)  %>% filter(critere=="logw")  %>% 
+    mutate(r=factor(r, levels=c("simulated","real"))) %>%
+  ggplot(aes(x=subset, y = true, col=r)) +
+  geom_violin() +
+  ylab("logw (true)") +
+  theme_light() +
+  xlab("Impact of QTL number/size")+
+  ggtitle("logw") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+ggarrange(gebv, sd, logw, uc, uc_extreme, ncol=1, nrow=1, common.legend = T)
+
+
+get_density <- function(x, y, ...) {
+  dens <- MASS::kde2d(x, y, ...)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+
+allcm_estimated <- c6 %>% filter(subset=="allcm" & r=="1") %>%
+  dplyr::select(P1, P2, critere, estimated) %>%
+  pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "estimated") %>%
+      mutate(density=get_density(gebv, sd, n = 100)) %>%
+  ggplot(aes(x=gebv, y=sd, col=density)) +
+  geom_point() +
+  scale_color_viridis() +
+  theme_light() +
+  ggtitle("allcm, one QTL simulation, estimated")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+allcm_true <- c6 %>% filter(subset=="allcm" & r=="1") %>%
+  dplyr::select(P1, P2, critere, true) %>%
+  pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "true") %>%
+      mutate(density=get_density(gebv, sd, n = 100)) %>%
+  ggplot(aes(x=gebv, y=sd, col=density)) +
+  geom_point() +
+  scale_color_viridis() +
+  theme_light() +
+  ggtitle("allcm, one QTL simulation, true")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggarrange(allcm_true, allcm_estimated, common.legend = T)
+
+c20cm_true <- c6 %>% filter(subset=="20cm" & r=="1") %>%
+  dplyr::select(P1, P2, critere, true) %>%
+  pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "true") %>%
+      mutate(density=get_density(gebv, sd, n = 100)) %>%
+  ggplot(aes(x=gebv, y=sd, col=density)) +
+  geom_point() +
+  scale_color_viridis()+
+  theme_light() +
+  ggtitle("20cm, one QTL simulation, true")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+c20cm_estimated <- c6 %>% filter(subset=="20cm" & r=="1") %>%
+  dplyr::select(P1, P2, critere, estimated) %>%
+  pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "estimated") %>%
+      mutate(density=get_density(gebv, sd, n = 100)) %>%
+  ggplot(aes(x=gebv, y=sd, col=density)) +
+  geom_point() +
+  scale_color_viridis()+
+  theme_light() +
+  ggtitle("20cm, one QTL simulation, estimated")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggarrange(c20cm_true, c20cm_estimated, common.legend = T)
+
+
+
+chrcm_true <- c6 %>% filter(subset=="chrcm" & r=="1") %>%
+  dplyr::select(P1, P2, critere, true) %>%
+  pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "true") %>%
+      mutate(density=get_density(gebv, sd, n = 100)) %>%
+  ggplot(aes(x=gebv, y=sd, col=density)) +
+  geom_point() +
+  scale_color_viridis()+
+  theme_light() +
+  ggtitle("chrcm, one QTL simulation, true")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+chrcm_estimated <- c6 %>% filter(subset=="chrcm" & r=="1") %>%
+  dplyr::select(P1, P2, critere, estimated) %>%
+  pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "estimated") %>%
+      mutate(density=get_density(gebv, sd, n = 100)) %>%
+  ggplot(aes(x=gebv, y=sd, col=density)) +
+  geom_point() +
+  scale_color_viridis()+
+  theme_light() +
+  ggtitle("chrcm, one QTL simulation, estimated")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+ggarrange(chrcm_true, chrcm_estimated, common.legend = T)
+
+    
+
+```
+
+# B) Effet de l'estimation
+
+
+
+
+```{r 2B}
+
+
+
+l7 <- fread(titre_lines) %>%
+  filter(grepl("simTRUE", type)) %>% 
+  filter(affixe=="real") %>%
+  filter(!is.na(tbv)) %>%
+  mutate(rr=as.factor(rr)) %>%
+  mutate(critere=ifelse(critere=="uc", "UC q = 7%", critere)) %>%
+  mutate(critere=ifelse(critere=="uc_extreme", "UC q = 0.01%", critere)) %>%
+  mutate(critere=factor(critere, levels=c("gebv","logw", "UC q = 7%", "UC q = 0.01%"))) %>%
+  dplyr::select(-generation, -population, -affixe, -used_as_parent) %>%
+  rowwise() %>%
+  mutate(h=extraction(type, "_", 4)) %>%
+  mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+  mutate(case=ifelse(h=="estimated",5,4)) %>%
+  mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+  mutate(subset=extraction(type, "_", 3)) %>%
+  ungroup() %>%
+  mutate(r=as.factor(r)) %>%
+  mutate(subset=factor(subset, levels=c("allcm","20cm","chrcm"))) %>%
+  dplyr::select(-type, -case, -h)
+
+
+
+
+# l7 <- fread(titre_lines) %>%
+#   filter(grepl("simTRUE", type)) %>% 
+#   filter(type %in% c("marker_simTRUE_20cm_r2", # to remove
+#                      "marker_simTRUE_20cm_r1", 
+#                      "marker_simTRUE_allcm_r2", 
+#                      "marker_simTRUE_allcm_r1",
+#                      "marker_simTRUE_chrcm_r1",
+#                      "marker_simTRUE_20cm_h0.8__r1", 
+#                      "marker_simTRUE_allcm_h0.8_r2", 
+#                      "marker_simTRUE_allcm_h0.8_r1",
+#                      "marker_simTRUE_chrcm_h0.8_r1",
+#                      "marker_simTRUE_chrcm_r2")) %>%
+#   filter(affixe=="real") %>%
+#   filter(!is.na(tbv)) %>%
+#   mutate(rr=as.factor(rr)) %>%
+#   mutate(critere=ifelse(critere=="uc", "UC q = 7%", critere)) %>%
+#   mutate(critere=ifelse(critere=="uc_extreme", "UC q = 0.01%", critere)) %>%
+#   mutate(critere=factor(critere, levels=c("gebv","logw", "UC q = 7%", "UC q = 0.01%"))) %>%
+#   dplyr::select(-generation, -population, -affixe, -used_as_parent) %>%
+#   rowwise() %>%
+#   mutate(h=extraction(type, "_", 4)) %>%
+#   mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+#   mutate(case=ifelse(h=="estimated",5,4)) %>%
+#   mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+#   mutate(subset=extraction(type, "_", 3)) %>%
+#   ungroup() %>%
+#   mutate(r=as.factor(r)) %>%
+#   mutate(subset=factor(subset, levels=c("allcm","20cm","chrcm"))) %>%
+#   dplyr::select(-type, -case, -h)
+
+
+allcm <- markers %>%
+  filter(subset=="allcm") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  theme_light() +
+  xlab("true value") +
+  ylab("estimated") +
+  geom_smooth(method="lm", se=F, col="blue") +
+  geom_abline(slope=1, intercept = 0, col="red")+
+  facet_wrap(.~r, ncol=3) +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))+
+  ggtitle("All markers = qtls") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+m20cm <- markers %>%
+  filter(subset=="20cm") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  theme_light() +
+  xlab("true value") +
+  ylab("estimated") +
+  geom_smooth(method="lm", se=F, col="blue") +
+  geom_abline(slope=1, intercept = 0, col="red")+
+  facet_wrap(.~r, ncol=3) +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))+
+  ggtitle("Every 20 cM marker = qtls") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+chrcm <- markers %>%
+  filter(subset=="chrcm") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  theme_light() +
+  xlab("true value") +
+  ylab("estimated") +
+  geom_smooth(method="lm", se=F, col="blue") +
+  geom_abline(slope=1, intercept = 0, col="red")+
+  facet_wrap(.~r, ncol=3) +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))+
+  ggtitle("On marker per chr = qtls") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+allcm
+m20cm
+chrcm
+
+
+
+
+
+sd <- rbind(c6 %>% dplyr::select(-true) %>% mutate(r="estimated"), c6_false %>% rename(estimated=true)) %>%
+  filter(critere=="sd") %>% 
+  mutate(r=factor(r, levels=c("estimated","real"))) %>%
+  ggplot(aes(x=subset, y = estimated, col=r)) +
+  geom_violin() +
+  ylab("sd (estimated)") +
+  theme_light() +
+  xlab("QTL number")+
+  ggtitle("sd") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+gebv <- rbind(c6 %>% dplyr::select(-true)%>% mutate(r="estimated"), c6_false %>% rename(estimated=true)) %>%
+    mutate(r=factor(r, levels=c("estimated","real"))) %>%
+  filter(critere=="gebv") %>% 
+  ggplot(aes(x=subset, y = estimated, col=r)) +
+  geom_violin() +
+  ylab("gebv (estimated)") +
+  theme_light() +
+  xlab("QTL number")+
+  ggtitle("gebv") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+
+uc <-  rbind(c6 %>% dplyr::select(-true)%>% mutate(r="estimated"), c6_false %>% rename(estimated=true)) %>%
+    mutate(r=factor(r, levels=c("estimated","real"))) %>%
+  filter(critere=="uc") %>% 
+  ggplot(aes(x=subset, y = estimated, col=r)) +
+  geom_violin() +
+  ylab("UC q = 7% (estimated)") +
+  theme_light() +
+  xlab("QTL number")+
+  ggtitle("UC q = 7%") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+uc_extreme <-  rbind(c6 %>% dplyr::select(-true)%>% mutate(r="estimated"), c6_false %>% rename(estimated=true)) %>%
+    mutate(r=factor(r, levels=c("estimated","real"))) %>%
+  filter(critere=="uc_extreme") %>% 
+  ggplot(aes(x=subset, y = estimated, col=r)) +
+  geom_violin() +
+  ylab("UC q = 0.01% (estimated)") +
+  theme_light() +
+  xlab("QTL number")+
+  ggtitle("UC q = 0.01%") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+logw <-  rbind(c6 %>% dplyr::select(-true)%>% mutate(r="estimated"), c6_false %>% rename(estimated=true)) %>%
+    mutate(r=factor(r, levels=c("estimated","real"))) %>%
+  filter(critere=="logw") %>% 
+  ggplot(aes(x=subset, y = estimated, col=r)) +
+  geom_violin() +
+  ylab("logw (true)") +
+  theme_light() +
+  xlab("QTL number")+
+  ggtitle("logw") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+
+
+
+ggarrange(gebv, sd, logw, uc, uc_extreme, ncol=1, nrow = 1, common.legend = T)
+
+
+
+
+gebv <- c6 %>%
+  filter(critere=="gebv") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  geom_abline(slope=1, col="red", intercept = 0)+
+  facet_grid(subset~r, scales="free") +
+  ggtitle("gebv") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme_light() +
+  geom_smooth(method="lm", se=F, col="blue") +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))
+
+
+
+
+
+sd <- c6 %>%
+  filter(critere=="sd") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  geom_abline(slope=1, col="red", intercept = 0)+
+  facet_grid(subset~r, scales="free") +
+  ggtitle("sd") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme_light()+
+  geom_smooth(method="lm", se=F, col="blue") +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))
+
+
+
+
+logw <- c6 %>%
+  filter(critere=="logw") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  geom_abline(slope=1, col="red", intercept = 0)+
+  facet_grid(subset~r, scales="free") +
+  ggtitle("logw") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme_light()+
+  geom_smooth(method="lm", se=F, col="blue") +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))
+
+
+
+uc <- c6 %>%
+  filter(critere=="uc") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  geom_abline(slope=1, col="red", intercept = 0)+
+  facet_grid(subset~r, scales="free") +
+  ggtitle("UC q = 7%") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme_light()+
+  geom_smooth(method="lm", se=F, col="blue") +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))
+
+
+
+uc_extreme <- c6 %>%
+  filter(critere=="uc_extreme") %>%
+  ggplot(aes(x=true, y=estimated)) + geom_point()+
+  geom_abline(slope=1, col="red", intercept = 0)+
+  facet_grid(subset~r, scales="free") +
+  ggtitle("UC q = 0.01%") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme_light()+
+  geom_smooth(method="lm", se=F, col="blue") +
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black"))
+
+gebv_progeny <- l7 %>% ggplot(aes(x=tbv, y=gebv)) +
+  geom_point() +
+  facet_wrap(r~subset, ncol=3) +
+  geom_abline(slope = 1, col="red", intercept = 0)+
+  theme(strip.background = element_rect(color="black", fill="white"),
+        strip.text.y = element_text(color="black"),
+        strip.text.x = element_text(color="black")) +
+  ggtitle("Prediction of progeny") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_smooth(method="lm", se=F, col="blue")
+
+
+ggarrange(gebv, sd, logw, uc, uc_extreme, gebv_progeny, ncol=1, nrow=1)
+
+
+
+
+
+
+
+
+
+```
+
+
+
+# C) Gain avec et sans estimation
+
+```{r 2C}
+
+
+variables <- commandArgs(trailingOnly=TRUE)
+cat("\n\nVariables : \n")
+print(variables)
+cat("\n\n")
+
+
+
+
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines <- variables[3]
+titre_ped <- variables[4]
+titre_best_crosses <- variables[5]
+titre_lines_pred <- variables[6]
+titre_pedigree_pred <- variables[7]
+titre_lines_parents <- variables[8]
+
+
+# ################################################# zone de travail
+# 
+# 
+# c3 <- fread(titre_crosses_WE) %>%
+#   filter(type=="marker_simTRUE_allcm_r2") %>% 
+#   dplyr::select(P1, P2, gebv, sd, logw, uc, uc_extreme) %>%
+#   arrange(desc(gebv))
+# 
+# 
+# b3 <- fread(titre_best_crosses)  %>%
+#   filter(type=="marker_simTRUE_allcm_r2") %>% 
+#   filter(affixe=="real")  %>%
+#   dplyr::select(P1, P2, critere, nbprogeny)  %>%
+#   pivot_wider(id_cols = c("P1","P2"), names_from = "critere", values_from = "nbprogeny") %>%
+#   mutate(choosen=case_when(!is.na(gebv) & !is.na(logw) & !is.na(uc) & is.na(uc_extreme)~ "gebv+uc+logw+uc_extreme",
+#                            is.na(gebv) & !is.na(logw) & !is.na(uc) & is.na(uc_extreme) ~ "uc+logw",
+#                            is.na(gebv) & is.na(logw) & !is.na(uc) & is.na(uc_extreme)~ "uc",
+#                            is.na(gebv) & !is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "logw",
+#                            !is.na(gebv) & is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "gebv",
+#                            !is.na(gebv) & !is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "gebv+logw",
+#                            !is.na(gebv) & is.na(logw) & !is.na(uc) & is.na(uc_extreme)~ "gebv+uc",
+#                            is.na(gebv) & is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "none",
+#                            is.na(gebv) & !is.na(logw) & !is.na(uc) & !is.na(uc_extreme) ~ "uc+logw+uc_extreme",
+#                            is.na(gebv) & is.na(logw) & !is.na(uc) & !is.na(uc_extreme)~ "uc+uc_extreme",
+#                            is.na(gebv) & !is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "logw+uc_extreme",
+#                            !is.na(gebv) & is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "gebv+uc_extreme",
+#                            !is.na(gebv) & !is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "gebv+logw+uc_extreme",
+#                            !is.na(gebv) & is.na(logw) & !is.na(uc) & !is.na(uc_extreme)~ "gebv+uc+uc_extreme",
+#                            is.na(gebv) & is.na(logw) & is.na(uc) & !is.na(uc_extreme)~ "uc_extreme",
+#                            is.na(gebv) & is.na(logw) & is.na(uc) & is.na(uc_extreme)~ "none")) %>%
+#   dplyr::select(P1, P2, choosen, gebv, logw, uc, uc_extreme) %>%
+#   rename(gebv_progeny=gebv, logwprogeny=logw, ucprogeny=uc, uc_extremeprogeny=uc_extreme) %>%
+#   mutate(gebv_progeny=ifelse(gebv_progeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+#   
+#   mutate(ucprogeny2=ifelse(ucprogeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+#   mutate(uc_extremeprogeny=ifelse(uc_extremeprogeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+#   mutate(logwprogeny=ifelse(logwprogeny>=30, "nbprogeny>30", "nbprogeny<30")) %>%
+#   mutate(gebv_progeny=factor(gebv_progeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+#   mutate(ucprogeny=factor(ucprogeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+#   mutate(uc_extremeprogeny=factor(uc_extremeprogeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+#   mutate(logwprogeny=factor(logwprogeny,levels=c("nbprogeny>30", "nbprogeny<30"))) %>%
+#   
+#            
+#   inner_join(c3, by=c("P1","P2")) 
+# 
+# 
+# 
+# 
+# gebv <- c3 %>%
+#   ggplot(aes(x=gebv, y=sd)) +
+#   geom_point()+
+#   theme_light() +
+#   xlab("expected mean of progeny") +
+#   ylab("expected sd of progeny")+
+#   theme(plot.title = element_text(hjust = 0.5)) + 
+#   geom_point(data=b3 %>% filter(grepl("gebv", choosen)), aes(x=gebv, y=sd, col="choosen"), size=2) +
+#   scale_color_manual(values=c("#7CAE00"), name="")+
+#   theme(legend.position="none") +
+#   ggtitle("gebv")
+# 
+# 
+# 
+# uc <- c3 %>%
+#   ggplot(aes(x=gebv, y=sd)) +
+#   geom_point()+
+#   theme_light() +
+#   xlab("expected mean of progeny") +
+#   ylab("expected sd of progeny")+
+#   theme(plot.title = element_text(hjust = 0.5)) + 
+#   geom_point(data=b3 %>% 
+#                filter(!is.na(choosen)) %>%
+#                mutate(choosen=paste0(choosen,"+")) %>%
+#                filter(grepl(pattern="+uc", x=choosen) | grepl("+uc+", choosen) | grepl("uc+", choosen)) , 
+#              aes(x=gebv, y=sd, size=ifelse(ucprogeny=="nbprogeny>30", 5, 2), col="choosen"), size=2) +
+#   theme(legend.position="none") +
+#   scale_color_manual(values=c("#00BFC4"))+
+#   ggtitle("UC (q = 7%)")
+# 
+# 
+# 
+# logw <- c3 %>%
+#   ggplot(aes(x=gebv, y=sd)) +
+#   geom_point()+
+#   theme_light() +
+#   xlab("expected mean of progeny") +
+#   ylab("expected sd of progeny")+
+#   theme(plot.title = element_text(hjust = 0.5)) + 
+#   geom_point(data=b3 %>% filter(grepl("logw", choosen)), aes(x=gebv, y=sd, col="choosen"), size=2) +
+# 
+#   theme(legend.position="none") +
+#   scale_color_manual(values=c("#00BFC4"))+
+#   ggtitle("UC (q = 7%)")
+# 
+#  
+#  ped <- fread(titre_ped) %>%
+#    filter(affixe=="real")%>%
+#    filter(grepl("simTRUE",type))%>%
+#    filter(!grepl("_h",type))%>%
+#    filter(type %in% c("marker_simTRUE_20cm_r2",  # to remove
+#                       "marker_simTRUE_20cm_r1", 
+#                       "marker_simTRUE_allcm_r2", 
+#                       "marker_simTRUE_allcm_r1",
+#                       "marker_simTRUE_chrcm_r1",
+#                       "marker_simTRUE_20cm_h0.8__r1", 
+#                       "marker_simTRUE_allcm_h0.8_r2", 
+#                       "marker_simTRUE_allcm_h0.8_r1",
+#                       "marker_simTRUE_chrcm_h0.8_r1",
+#                       "marker_simTRUE_chrcm_r2")) %>%
+#    mutate(rr=as.factor(rr)) %>%
+#    mutate(critere=ifelse(critere=="uc", "UC q = 7%", critere)) %>%
+#    mutate(critere=ifelse(critere=="uc_extreme", "UC q = 0.01%", critere)) %>%
+#    mutate(critere=factor(critere, levels=c("gebv","logw", "UC q = 7%", "UC q = 0.01%"))) %>%
+#    dplyr::select(-generation, -population, -affixe) %>%
+#    rowwise() %>%
+#    mutate(h=extraction(type, "_", 4)) %>%
+#    mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+#    mutate(case=ifelse(h=="estimated",5,4)) %>%
+#    mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+#    mutate(subset=extraction(type, "_", 3)) %>%
+#    ungroup() %>%
+#    mutate(r=as.factor(r)) %>%
+#    mutate(subset=factor(subset, levels=c("allcm","20cm","chrcm"))) %>%
+#    dplyr::select(-type, -case, -h)
+# 
+#  
+#  ped2 <- ped %>% filter(r=="2" & subset=="allcm") 
+#  
+#  
+#  c <- fread(titre_crosses_WE) %>%
+#    filter(grepl("simTRUE",type))%>%
+#    filter(!grepl("_h",type))%>%
+#    filter(type %in% c("marker_simTRUE_20cm_r2", # to remove
+#                       "marker_simTRUE_20cm_r1", 
+#                       "marker_simTRUE_allcm_r2", 
+#                       "marker_simTRUE_allcm_r1",
+#                       "marker_simTRUE_chrcm_r1",
+#                       "marker_simTRUE_20cm_h0.8__r1", 
+#                       "marker_simTRUE_allcm_h0.8_r2", 
+#                       "marker_simTRUE_allcm_h0.8_r1",
+#                       "marker_simTRUE_chrcm_h0.8_r1",
+#                       "marker_simTRUE_chrcm_r2")) %>%
+#    group_by(type) %>%
+#    arrange(desc(gebv)) %>%
+#    mutate(rank_gebv=1:n()) %>%
+#    arrange(desc(uc_extreme)) %>% 
+#    mutate(rank_uc_extreme=1:n()) %>%
+#    arrange(desc(uc)) %>% 
+#    mutate(rank_uc=1:n()) %>% 
+#    arrange(logw) %>%
+#    mutate(rank_logw=1:n()) %>% 
+#    ungroup() %>%
+#    dplyr::select(P1, P2, type, gebv, sd, logw, uc, uc_extreme, rank_gebv, rank_logw, rank_uc, rank_uc_extreme)%>%
+#    rowwise() %>%
+#    mutate(h=extraction(type, "_", 4)) %>%
+#    mutate(h=ifelse(grepl("h",h), "estimated", "true")) %>%
+#    mutate(case=ifelse(h=="estimated",5,4)) %>%
+#    mutate(r=as.numeric(gsub("r","",extraction(type, "_", case)))) %>%
+#    mutate(subset=extraction(type, "_", 3)) %>%
+#    ungroup() %>%
+#    mutate(r=as.factor(r)) %>%
+#    mutate(subset=factor(subset, levels=c("allcm","20cm","chrcm"))) %>%
+#    dplyr::select(-type, -case, -h)
+#  
+#  
+#  
+#  c2 <- c %>% filter(subset=="allcm" & r=="2") %>%
+#    arrange(desc(gebv)) %>%
+#    mutate(rank_gebv=1:n()) %>%
+#    arrange(desc(uc)) %>%
+#    mutate(rank_uc=1:n())
+#  
+#  
+# 
+# 
+# 
+# temp <- l7 %>%
+#   filter(subset=="allcm" & r=="2") %>%
+#   filter(!is.na(tbv) & is.na(gebv)) %>%
+#   group_by(critere, rr, subset, r) %>%
+#   mutate(m=max(tbv)) %>%
+#   filter(tbv==m) %>%
+#   dplyr::select(ID, critere, rr, subset, r, tbv) %>%
+#   inner_join(ped, by=c("critere","ID", "rr", "subset","r")) %>%
+#   group_by(P1, P2, critere, subset,r) %>%
+#   summarise(n=n()) %>%
+#   inner_join(c , by=c("P1","P2","subset","r")) %>%
+#   dplyr::select(P1, P2, critere, r, n, rank_gebv, rank_uc) %>%
+#   group_by(subset, critere, r) %>%
+#   summarise(rank_gebv_moy=mean(rank_gebv),
+#             rank_uc_moy=mean(rank_uc))
+# 
+# 
+# 
+# temp <- l7 %>%
+#   filter(subset=="allcm" & r=="2") %>%
+#   filter(!is.na(tbv) & is.na(gebv)) %>%
+#   group_by(subset, r) %>%
+#   mutate(m=max(tbv)) %>%
+#   filter(tbv==m) %>%
+#   dplyr::select(ID,critere, subset, r, tbv, rr) %>%
+#   inner_join(ped, by=c("critere","ID", "rr", "subset","r")) %>%
+#   group_by(P1, P2,subset,r) %>%
+#   summarise(n=n()) %>%
+#   inner_join(c , by=c("P1","P2","subset","r")) %>%
+#   dplyr::select(P1, P2, subset, r, n, rank_gebv, rank_uc) %>%
+#   group_by(subset, r) %>%
+#   summarise(rank_gebv_moy=mean(rank_gebv),
+#             rank_uc_moy=mean(rank_uc))
+
+
+# 
+# 
+# temp <- l7 %>%
+#   filter(!is.na(tbv) & is.na(gebv)) %>%
+#   group_by(rr, subset, r) %>%
+#   mutate(m=max(tbv)) %>%
+#   filter(tbv==m) %>%
+#   dplyr::select(ID, critere, rr, subset, r) %>%
+#   inner_join(ped, by=c("critere","ID", "rr", "subset","r")) %>%
+#   group_by(P1, P2, subset,r) %>%
+#   summarise(n=n()) %>%
+#   inner_join(c , by=c("P1","P2","subset","r")) %>%
+#   dplyr::select(P1, P2, r, n, rank_gebv, rank_uc_extreme, rank_uc, rank_logw) %>%
+#   group_by(subset, r) %>%
+#   summarise(rank_gebv_moy=mean(rank_gebv),
+#             rank_uc_moy=mean(rank_uc_extreme),
+#             rank_uc_extreme_moy=mean(rank_uc_extreme))
+# 
+# 
+# mean(temp$rank_gebv)
+# mean(temp$rank_uc_extreme)
+# mean(temp$rank_uc)
+# mean(temp$rank_logw)
+# 
+# 
+# # temp <- l7 %>% filter(critere %in% c("gebv") ) %>%
+# #   filter(!is.na(gebv)) %>%
+# #   filter(subset=="allcm") %>%
+# #   inner_join(ped, by="ID") %>%
+# #   group_by(P1, P2) %>%
+# #   summarise(m=mean(gebv), n=n()) %>%
+# #   arrange(desc(m))
+# 
+# c %>% ggplot(aes(x=gebv, y=sd)) + geom_point()
+# 
+# 
+# # c <- fread(titre_crosses_WE) %>%
+# #   filter(type=="marker_simFALSE_allcm")
+# 
+# temp <- temp %>% inner_join(c, by=c("P1","P2"))
+# 
+# ggplot(temp, aes(x=gebv, y=m)) + geom_point()+ geom_abline(slope=1, intercept = 0, col="red")
+# 
+# 
+# 
+# temp <- l7  %>%
+#   filter(!is.na(tbv) & is.na(gebv)) %>%
+#   filter(subset=="allcm") %>%
+#   group_by(critere, rr, r, subset) %>%
+#   mutate(m1=max(tbv)) %>%
+#   filter(tbv==m1) %>%
+# mutate(ref=ifelse(critere=="gebv",m1, NA)) %>%
+#   group_by(critere, r, subset) %>%
+#   mutate(perf=mean(m1)) %>%
+# mutate(ref=mean(ref, na.rm=T)) %>%
+#   group_by(r, subset) %>%
+#   mutate(ref=mean(ref,na.rm=T)) %>%
+#     ungroup() %>%
+#   group_by(r, critere, subset) %>%
+#   summarise(gain=unique((perf-ref)/ref))
+# 
+# 
+# # mm couples pour uc et gebv
+# 
+# 
+# temp <- l7  %>%
+#   filter(r=="2") %>%
+#   filter(!is.na(tbv) & is.na(gebv)) %>%
+#   filter(subset=="allcm") %>%
+#   group_by(critere, rr, r, subset) %>%
+#   mutate(m1=max(tbv)) %>%
+#   filter(tbv==m1) %>%
+#   ungroup() %>%
+#   mutate(rr=as.numeric(as.character(rr))) %>%
+#   inner_join(ped%>%
+#   mutate(critere=ifelse(critere=="uc", "UC q = 7%", critere)) %>%
+#   mutate(critere=ifelse(critere=="uc_extreme", "UC q = 0.01%", critere)),  by=c("ID","critere", "rr")) %>%
+#  dplyr::select(P1, P2, critere) %>%
+#   group_by(P1, P2, critere) %>%
+#   summarise(n=n()) %>%
+#   pivot_wider(id_cols = c("P1","P2"), values_from = "n", names_from = "critere")
+# 
+# 
+#   mutate(m2=ifelse(critere=="gebv",m1, NA)) %>%
+#     group_by(critere, r) %>%
+#   mutate(m2=mean(m2, na.rm=T)) %>%
+#   mutate(tbv2=max(tbv)) %>%
+
+
+
+################################################
+
+
+l9_estimated_geb_best <- l7 %>%
+  filter(!is.na(gebv) & !is.na(tbv)) %>%
+  group_by(critere, rr, subset, r) %>%
+  mutate(sd_progeny=sd(gebv)) %>%
+  mutate(mean_progeny=mean(gebv)) %>%
+  mutate(q0.93=quantile(gebv, 0.93, na.rm = T)) %>%
+  filter(gebv >= q0.93) %>%
+  summarise(best=max(gebv, na.rm = T), 
+            mean=mean(gebv, na.rm=T), 
+            mean_progeny=unique(mean_progeny), 
+            sd_progeny=unique(sd_progeny)) %>%
+  ungroup()%>%
+  group_by(critere, subset, r) %>%
+  mutate(best=mean(best, na.rm=T)) %>%
+  arrange(critere, subset, r ,rr) %>%
+  mutate(ref=ifelse(critere=="gebv",best,NA)) %>%
+  group_by(subset, r) %>%
+  mutate(ref=max(ref, na.rm=T)) %>%
+  mutate(gain=(best-ref)/ref) %>%
+  group_by(critere, subset, r) %>%
+  summarise(gain = mean(gain)) %>% mutate(marker_effect="estimated")
+
+
+
+l9_estimated_tbv_best <- l7 %>%
+  filter(!is.na(gebv) & !is.na(tbv)) %>%
+  group_by(critere, rr, subset, r) %>%
+  mutate(sd_progeny=sd(tbv)) %>%
+  mutate(mean_progeny=mean(tbv)) %>%
+  mutate(q0.93=quantile(tbv, 0.93, na.rm = T)) %>%
+  filter(tbv >= q0.93) %>%
+  summarise(best=max(tbv, na.rm = T), 
+            mean=mean(tbv, na.rm=T), 
+            mean_progeny=unique(mean_progeny), 
+            sd_progeny=unique(sd_progeny)) %>%
+  ungroup() %>%
+  group_by(critere, subset, r) %>%
+  mutate(best=mean(best, na.rm=T)) %>%
+  arrange(critere, subset, r ,rr) %>%
+  mutate(ref=ifelse(critere=="gebv",best,NA)) %>%
+  group_by(subset, r) %>%
+  mutate(ref=max(ref, na.rm=T)) %>%
+  mutate(gain=(best-ref)/ref) %>%
+  group_by(critere, subset, r) %>%
+  summarise(gain = mean(gain))%>% mutate(marker_effect="estimated")
+
+
+
+l9_true_tbv_best <- l7 %>%
+  filter(!is.na(tbv) & is.na(gebv)) %>%
+  group_by(critere, rr, subset, r) %>%
+  mutate(sd_progeny=sd(tbv)) %>%
+  mutate(mean_progeny=mean(tbv)) %>%
+  mutate(q0.93=quantile(tbv, 0.93, na.rm = T)) %>%
+  filter(tbv >= q0.93) %>%
+  summarise(best=max(tbv, na.rm = T), 
+            mean=mean(tbv, na.rm=T), 
+            mean_progeny=unique(mean_progeny), 
+            sd_progeny=unique(sd_progeny)) %>%
+  ungroup()  %>%
+  group_by(critere, subset, r) %>%
+  mutate(best=mean(best, na.rm=T)) %>%
+  arrange(critere, subset, r ,rr) %>%
+  mutate(ref=ifelse(critere=="gebv",best,NA)) %>%
+  group_by(subset, r) %>%
+  mutate(ref=max(ref, na.rm=T)) %>%
+  mutate(gain=(best-ref)/ref) %>%
+  group_by(critere, subset, r) %>%
+  summarise(gain = mean(gain))%>% mutate(marker_effect="true")
+
+l9_best <- rbind(l9_estimated_tbv_best, l9_true_tbv_best)
+
+best <- l9_best %>%
+  ggplot(aes(x=critere, y=gain, col=marker_effect)) + geom_boxplot() +
+  facet_grid(.~subset)+
+  theme(legend.position = "bottom") + theme_light() +
+  ggtitle("best progeny") +
+  ylab("gain (% from gebv)") +
+  xlab("")+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+l9_estimated_geb_topmean <- l7 %>%
+  filter(!is.na(gebv) & !is.na(tbv)) %>%
+  group_by(critere, rr, subset, r) %>%
+  mutate(sd_progeny=sd(gebv)) %>%
+  mutate(mean_progeny=mean(gebv)) %>%
+  mutate(q0.93=quantile(gebv, 0.93, na.rm = T)) %>%
+  filter(gebv >= q0.93) %>%
+  summarise(best=max(gebv, na.rm = T), 
+            mean=mean(gebv, na.rm=T), 
+            mean_progeny=unique(mean_progeny), 
+            sd_progeny=unique(sd_progeny)) %>%
+  ungroup()%>%
+  group_by(critere, subset, r) %>%
+  mutate(mean=mean(mean, na.rm=T)) %>%
+  arrange(critere, subset, r ,rr) %>%
+  mutate(ref=ifelse(critere=="gebv",mean,NA)) %>%
+  group_by(subset, r) %>%
+  mutate(ref=max(ref, na.rm=T)) %>%
+  mutate(gain=(mean-ref)/ref) %>%
+  group_by(critere, subset, r) %>%
+  summarise(gain = mean(gain)) %>% mutate(marker_effect="estimated")
+
+
+
+l9_estimated_tbv_mean <- l7 %>%
+  filter(!is.na(gebv) & !is.na(tbv)) %>%
+  group_by(critere, rr, subset, r) %>%
+  mutate(sd_progeny=sd(tbv)) %>%
+  mutate(mean_progeny=mean(tbv)) %>%
+  mutate(q0.93=quantile(tbv, 0.93, na.rm = T)) %>%
+  filter(tbv >= q0.93) %>%
+  summarise(best=max(tbv, na.rm = T), 
+            mean=mean(tbv, na.rm=T), 
+            mean_progeny=unique(mean_progeny), 
+            sd_progeny=unique(sd_progeny)) %>%
+  ungroup() %>%
+  group_by(critere, subset, r) %>%
+  mutate(mean=mean(mean, na.rm=T)) %>%
+  arrange(critere, subset, r ,rr) %>%
+  mutate(ref=ifelse(critere=="gebv",mean,NA)) %>%
+  group_by(subset, r) %>%
+  mutate(ref=max(ref, na.rm=T)) %>%
+  mutate(gain=(mean-ref)/ref) %>%
+  group_by(critere, subset, r) %>%
+  summarise(gain = mean(gain))%>% mutate(marker_effect="estimated")
+
+
+l9_true_tbv_mean <- l7 %>%
+  filter(!is.na(tbv) & is.na(gebv)) %>%
+  group_by(critere, rr, subset, r) %>%
+  mutate(sd_progeny=sd(tbv)) %>%
+  mutate(mean_progeny=mean(tbv)) %>%
+  mutate(q0.93=quantile(tbv, 0.93, na.rm = T)) %>%
+  filter(tbv >= q0.93) %>%
+  summarise(best=max(tbv, na.rm = T), 
+            mean=mean(tbv, na.rm=T), 
+            mean_progeny=unique(mean_progeny), 
+            sd_progeny=unique(sd_progeny)) %>%
+  ungroup()  %>%
+  group_by(critere, subset, r) %>%
+  mutate(mean=mean(mean, na.rm=T)) %>%
+  arrange(critere, subset, r ,rr) %>%
+  mutate(ref=ifelse(critere=="gebv",mean,NA)) %>%
+  group_by(subset, r) %>%
+  mutate(ref=max(ref, na.rm=T)) %>%
+  mutate(gain=(mean-ref)/ref) %>%
+  group_by(critere, subset, r) %>%
+  summarise(gain = mean(gain))%>% mutate(marker_effect="true")
+
+l9_topmean <- rbind(l9_estimated_tbv_mean, l9_true_tbv_mean)
+
+
+topmean <- l9_topmean %>%
+  ggplot(aes(x=critere, y=gain, col=marker_effect)) + geom_boxplot() +
+  facet_grid(.~subset)+
+  theme(legend.position = "bottom") + theme_light() +
+  ggtitle("mean of 7% top progeny") +
+  ylab("gain (% from gebv)") +
+  xlab("")+
+  theme(plot.title = element_text(hjust = 0.5))+
+    theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+
+
+ggarrange(best, topmean, ncol=1, nrow=1, common.legend = T)
+modbest <- summary(lm(gain~ critere*subset, data=l9_best%>% filter(marker_effect=="true")))
+modbest
+
+modtopmean <- summary(lm(gain~ critere*subset, data=l9_topmean%>% filter(marker_effect=="true")))
+modtopmean
+```
+

@@ -1,9 +1,9 @@
 
 
 
-# Goal : filter genotyping dataset
-# Input : genotyping matrix, id of lines
-# Output : updated genotyping matrix
+# Goal : remove markers and lines with too much NA or heterozygotie. Formatting genotyping data
+# Input : genotyping matrix, ID of lines
+# Output : formatted genotyping matrix
 
 
 
@@ -26,11 +26,11 @@ cat("\n\n")
 
 
 
-titre_genotyping_matrix_raw <- variables[1]
-titre_lines <- variables[2]
-titre_genotyping_matrix_updated <- variables[3]
-keep_all <- variables[4]
-
+titre_genotyping_input <- variables[1]
+titre_lines_input <- variables[2]
+keep_all <- variables[3]
+titre_genotyping_output <- variables[4]
+titre_lines_output <- variables[5]
 
 
 
@@ -38,58 +38,47 @@ keep_all <- variables[4]
 # 
 
 # titre_genotyping_matrix_raw <- "/work/adanguy/these/croisements/amont/matrix_nonimput_withoutOTV_names.txt"
-# titre_lines <- "/work/adanguy/these/croisements/180120/lines.txt"
+# titre_lines <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"
 # titre_genotyping_matrix_updated <- "/work/adanguy/these/croisements/180120/genotyping_matrix.txt"
-
-
+# 
+# keep_all <- "FALSE"
 
 ### Chargement des donnees
 
 
-cat("\n\n INPUT : genotyping matrix to have markers ID \n\n")
-genotyping <- suppressWarnings(fread(titre_genotyping_matrix_raw))
-genotyping[1:10, 1:10]
-dim(genotyping)
-# subsampling of data for trials
-# genotyping <- genotyping[,sort(c(1, sample(1:ncol(genotyping), size=2000, replace=F)))] 
-# genotyping <- replace(genotyping, is.na(genotyping), 0)
-# column 1 = V1 = variery ID (string, as many levels as the row number, here 2 143)
-# column 2 - 31 315 = AX.1234567 = marker ID (intergers), here 31 315 markers
-# dimension of file : 2 143 * 31315
-# Don't worry with warning message
-
-cat("\n\n INPUT : new ID of varieties with a uniform format \n\n")
-lines <- fread(titre_lines)
-head(lines)
-dim(lines)
-# column 1 = LINE = ID of variety (string, 3 185 levels = as many as varieties ID)
-# column 2 = line2 = modified ID of variety (use in further analysis) (string, 3 185 levels)
-# column 3 = phenotyped = variety phenotyped  (logical)
-# column 4 = blue = estimate of variety yield (numeric)
-# column 5 = genotyped = variety was genotyped (logical)
-# column 6 = used_as_parent = variety used as parent (logical but NA for now)
-# dim file : 3185*6
+cat("\n\n INPUT : genotyping data \n\n")
+suppressWarnings(fread(titre_genotyping_input)) %>% arrange(V1) %>% select(1:10) %>% slice(1:10)
+suppressWarnings(fread(titre_genotyping_input)) %>% arrange(V1) %>% select(1:10) %>% slice((nrow(.)-10) : nrow(.))
+suppressWarnings(fread(titre_genotyping_input)) %>% dim()
 
 
 
-# STEP 1 : keep only lines which have BLUEs
+cat("\n\n INPUT : lines info \n\n")
+fread(titre_lines_input) %>% head()
+fread(titre_lines_input) %>% tail()
+fread(titre_lines_input) %>% filter(phenotyped==T & genotyped==T) %>% head()
+fread(titre_lines_input) %>% dim()
+
+
+
+
+# STEP 1 : keep only lines which have BLUEs or keep all
 
 if (keep_all=="TRUE"){
-
-genotyping2 <- genotyping %>% rename(LINE=V1) %>%
-  inner_join(lines %>% filter(genotyped==T) %>% dplyr::select(LINE, line2), by="LINE") %>% 
-  dplyr::select(-LINE) %>%
-  dplyr::select(line2, starts_with("AX")) %>%
-  arrange(line2)
-
+  
+  genotyping2 <- suppressWarnings(fread(titre_genotyping_input))  %>% rename(LINE=V1) %>%
+    inner_join(fread(titre_lines_input) %>% filter(genotyped==T) %>% dplyr::select(LINE, ID), by="LINE") %>% 
+    dplyr::select(-LINE) %>%
+    dplyr::select(ID, starts_with("AX")) %>%
+    arrange(ID)
+  
 } else if (keep_all=="FALSE"){
   
-  genotyping2 <- genotyping %>% rename(LINE=V1) %>%
-    inner_join(lines %>% filter(genotyped==T & phenotyped==T) %>% dplyr::select(LINE, line2), by="LINE") %>% 
+  genotyping2 <- suppressWarnings(fread(titre_genotyping_input))  %>% rename(LINE=V1) %>%
+    inner_join(fread(titre_lines_input) %>% filter(genotyped==T & phenotyped==T) %>% dplyr::select(LINE, ID), by="LINE") %>% 
     dplyr::select(-LINE) %>%
-    dplyr::select(line2, starts_with("AX"))%>%
-    arrange(line2)
-  
+    dplyr::select(ID, starts_with("AX"))%>%
+    arrange(ID)
   
 }
 
@@ -106,10 +95,6 @@ taux_het_max <- 0.05
 taux_NA_max <- 0.05
 maf_min <- 0.05
 
-
-
-
-
 snp_pas_ok <- data.frame(temp=1)
 lines_pas_ok <- data.frame(temp=1)
 i=0
@@ -118,7 +103,6 @@ while(nrow(snp_pas_ok) >=1 | nrow(lines_pas_ok)>=1){
   
   i=i+1
   print(paste0("filtering stage ", i))
-  
   
   # SNP
   
@@ -150,16 +134,13 @@ while(nrow(snp_pas_ok) >=1 | nrow(lines_pas_ok)>=1){
   snp_pas_ok
   print(nrow(snp_pas_ok))
   
-  
+  # filtering
   snp_to_keep <- intersect(intersect(maf_ok, missing_value_ok), hetero_ok)
-  
   genotyping2 <- genotyping2[,c(1,which(colnames(genotyping2) %in% snp_to_keep))]
   
   
   
   # individual
-  
-  
   
   # missing value
   
@@ -167,9 +148,9 @@ while(nrow(snp_pas_ok) >=1 | nrow(lines_pas_ok)>=1){
   hetero <- apply(t(genotyping2[,-1]), 2, function(x) length(which(x =="0")))
   homo2 <- apply(t(genotyping2[,-1]), 2, function(x) length(which(x =="-1")))
   missing_value <- (ncol(genotyping2[,-1]) - homo1 - hetero - homo2)/ncol(genotyping2[,-1])
-  missing_value_ok <- genotyping2$line2[which(missing_value <= taux_NA_max)]
-  missing_value_not_ok <- genotyping2$line2[which(missing_value > taux_NA_max)]
-  d1 <- data.frame(line2=as.character(missing_value_not_ok), taux_NA=round(missing_value[which(missing_value > taux_NA_max)], digits=2))
+  missing_value_ok <- genotyping2$ID[which(missing_value <= taux_NA_max)]
+  missing_value_not_ok <- genotyping2$ID[which(missing_value > taux_NA_max)]
+  d1 <- data.frame(ID=as.character(missing_value_not_ok), taux_NA=round(missing_value[which(missing_value > taux_NA_max)], digits=2))
   
   
   # heterozygotie
@@ -178,24 +159,22 @@ while(nrow(snp_pas_ok) >=1 | nrow(lines_pas_ok)>=1){
   hetero <- apply(t(genotyping2[,-1]), 2, function(x) length(which(x =="0")))
   homo2 <- apply(t(genotyping2[,-1]), 2, function(x) length(which(x =="-1")))
   hetero_value <- hetero/(homo1+hetero+homo2)
-  hetero_ok <- genotyping2$line2[which(hetero_value <= taux_het_max)]
-  hetero_not_ok <- genotyping2$line2[which(hetero_value > taux_het_max)]
-  d2 <- data.frame(line2=as.character(hetero_not_ok), taux_het=round(hetero_value[which(hetero_value > taux_het_max)], digits=2))
+  hetero_ok <- genotyping2$ID[which(hetero_value <= taux_het_max)]
+  hetero_not_ok <- genotyping2$ID[which(hetero_value > taux_het_max)]
+  d2 <- data.frame(ID=as.character(hetero_not_ok), taux_het=round(hetero_value[which(hetero_value > taux_het_max)], digits=2))
   cat("\n\n Lines removed, either because of too much missing values or too high heterozygotie rate \n\n")
-  lines_pas_ok <- d1 %>% full_join(d2, by="line2") %>% arrange(line2)
+  lines_pas_ok <- d1 %>% full_join(d2, by="ID") %>% arrange(ID)
   lines_pas_ok
   print(nrow(lines_pas_ok))
-  line2_to_keep <- intersect(missing_value_ok, hetero_ok)
+  ID_to_keep <- intersect(missing_value_ok, hetero_ok)
   
   
   
+  # filtering
+  genotyping2 <- genotyping2[which(genotyping2$ID %in% ID_to_keep),]
   
-  genotyping2 <- genotyping2[which(genotyping2$line2 %in% line2_to_keep),]
-  
-  
-  
-  
-  cat("\n\n dimension of filtered file \n\n")
+
+  cat("\n\n dimension of genotyping \n\n")
   print(dim(genotyping2))
 }
 
@@ -213,54 +192,37 @@ dom <- data.frame(homo1=homo1, homo_1=homo_1) %>%
   ungroup() %>%
   mutate(SNP=colnames(genotyping2)[-1])
 
-
 genotyping2bis <- genotyping2[,c(1,which(dom$good==T)+1)]
 genotyping2ter <- - genotyping2[,which(dom$good==F)+1]
-
 
 genotyping2 <- cbind(genotyping2bis, genotyping2ter)
 
 
 ### preprare for print
 
-genotyping3 <- genotyping2 %>%  
-  dplyr::select(line2, everything()) %>%
-  arrange(line2) %>%
+genotyping2 <- genotyping2 %>%  
+  dplyr::select(ID, everything()) %>%
+  arrange(ID) %>%
   mutate_at(vars(starts_with("AX")), funs(as.integer(as.character(.)))) %>%
   mutate_if(is.integer,~.+1) 
-colnames(genotyping3) <- str_replace_all(colnames(genotyping3), "AX.","AX-")
+colnames(genotyping2) <- str_replace_all(colnames(genotyping2), "AX.","AX-")
 
-lines2 <- lines %>% mutate(used_as_parent=line2 %in% genotyping2$line2) %>% arrange(line2)
-
-
-
+lines2 <- fread(titre_lines_input) %>% mutate(used_as_parent= ID %in% genotyping2$ID) %>% filter(used_as_parent==T) %>% arrange(ID) %>%
+  dplyr::select(LINE, ID, phenotyped, genotyped, used_as_parent, type, value)
 
 
-
-cat("\n\n OUTPUT : gentyping matrix updated \n\n")
-genotyping3[1:10,1:10]
-dim(genotyping3)
-# column 1 = line 2 = modified ID for variety (string, as many levels as number of lines, i.e. 2089)
-# column 2 - 19751 = genotype at each SNP
-# dimension: 2089 * 19821
-write.table(genotyping3, titre_genotyping_matrix_updated, col.names = T, row.names = F, quote=F, dec=".", sep="\t")
+cat("\n\n OUTPUT : genotyping \n\n")
+genotyping2[1:10,1:10]
+genotyping2[((nrow(genotyping2)-10):nrow(genotyping2)),1:10]
+dim(genotyping2)
+write.table(genotyping2, titre_genotyping_output, col.names = T, row.names = F, quote=F, dec=".", sep="\t")
 
 
-
-
-
-cat("\n\n OUTPUT : correspondance between true ID and modified ID of lines \n\n")
+cat("\n\n OUTPUT : lines info \n\n")
 head(lines2)
+tail(lines2)
 dim(lines2)
-write.table(lines2, titre_lines, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
-# column 1 = LINE = ID of variety (string, 3 185 levels = as many as varieties ID)
-# column 2 = line2 = modified ID of variety (use in further analysis) (string, 3 185 levels)
-# column 3 = phenotyped = variety phenotyped  (logical)
-# column 4 = blue = estimate of variety yield (numeric)
-# column 5 = gebv
-# column 6 = genotyped = variety was genotyped (logical)
-# column 7 = used_as_parent = variety used as parent (logical)
-# dim file : 3185*6
+write.table(lines2, titre_lines_output, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
 
 
 

@@ -2,7 +2,7 @@
 
 
 
-# Goal : estimate BLUEs
+# Goal : estimate BLUEs from phenotype file
 # Input : phenotypic data
 # Output : BLUEs
 
@@ -29,46 +29,33 @@ cat("\n\n")
 
 
 
-titre_phenotypes <- variables[1]
-titre_lines <- variables[2]
+titre_phenotypes_input <- variables[1]
+titre_lines_input <- variables[2]
+titre_lines_output <- variables[3]
 
 # titre_phenotypes <- "/work/adanguy/these/croisements/amont/Traitees_IS.txt"
 # titre_lines <- "/work/adanguy/these/croisements/180120/lines.txt"
 
 cat("\n\n INPUT : phenotypes \n\n")
-phenotypes <- fread(titre_phenotypes)
-head(phenotypes)
-dim(phenotypes)
-# column 1 = Geno = ID of variety (string, as many levels as number of variety, here 1 912)
-# column 2 = LINE = ID of variety (capital letters, here 1 909)
-# column 9 = Yield = yield (numeric, units ?)
-# column 10 = Prot = proteine content ? (numeric, units ?)
-# column 11 = Env = Environnement ID (product of column 3 Year and column 4 Site) (string, 145 levels)
-# column 3-8 : no importance here
-# dimension of file : 63 301 * 11
-# phenotypes %>% dplyr::select(LINE) %>% unique() %>% unlist() %>% as.vector() %>% length()
+fread(titre_phenotypes_input) %>% arrange(LINE) %>% head()
+fread(titre_phenotypes_input) %>% arrange(LINE) %>% tail()
+fread(titre_phenotypes_input) %>% dim()
 
 
 
+cat("\n\n INPUT : lines info \n\n")
+fread(titre_lines_input) %>% head()
+fread(titre_lines_input) %>% tail()
+fread(titre_lines_input) %>% filter(genotyped==T & phenotyped==T) %>% head()
+fread(titre_lines_input) %>% dim()
 
-cat("\n\n INPUT : correspondance between true ID and modified ID of lines \n\n")
-lines <- fread(titre_lines)
-head(lines)
-dim(lines)
-# column 1 = LINE = ID of variety (string, 3 185 levels = as many as varieties ID)
-# column 2 = line2 = modified ID of variety (use in further analysis) (string, 3 185 levels)
-# column 3 = phenotyped = variety phenotyped  (logical)
-# column 4 = blue = estimate of variety yield (numeric, but NA for now)
-# column 5 = genotyped = variety was genotyped (logical)
-# column 6 = used_as_parent = variety used as parent (logical, but NA for now)
-# dim file : 3185*6
 
 
 
 #### Step 1 : estimate blues of varieties
 
 # Prepare data for asmrel
-phenotypes2 <- phenotypes %>%
+phenotypes2 <- fread(titre_phenotypes_input) %>%
   mutate(LINE=as.factor(LINE), Env=as.factor(Env)) %>% 
   arrange(LINE, Env) %>%
   dplyr::select(LINE,Env, Yield)
@@ -82,8 +69,8 @@ blues <- coef(model_line_fixed, pattern="LINE") %>%
   as.data.frame()%>%
   rownames_to_column(var="LINE") %>%
   mutate(LINE=gsub("LINE_","", LINE)) %>%
-  rename(blue=effect) %>%
-  dplyr::select(LINE, blue) 
+  rename(value=effect) %>%
+  dplyr::select(LINE, value) 
 
 
 
@@ -110,10 +97,11 @@ print(paste0("heritability=",h2_plot,"_h2"))
 
 # step 3 : prepare for print
 
-lines2 <- blues %>% full_join(lines %>%
-                                   dplyr::select(LINE, line2, phenotyped, gebv, genotyped, used_as_parent, generation, best_crosses, run), by="LINE") %>%
-  arrange(line2) %>%
-  dplyr::select(LINE, line2, phenotyped, blue, gebv, genotyped, used_as_parent, generation, best_crosses, run)
+lines2 <- blues %>% full_join(fread(titre_lines_input) %>%
+                                   dplyr::select(LINE, ID, phenotyped, genotyped), by="LINE") %>%
+  arrange(ID) %>%
+  mutate(type="pheno_simFALSE") %>%
+  dplyr::select(LINE, ID, phenotyped, genotyped, type, value)
 
 
 
@@ -122,17 +110,13 @@ lines2 <- blues %>% full_join(lines %>%
 
 
 
-cat("\n\n OUTPUT : correspondance between true ID and modified ID of lines \n\n")
+cat("\n\n OUTPUT : lines info \n\n")
 head(lines2)
+tail(lines2)
+lines2 %>% filter(phenotyped==T & genotyped==T) %>% head()
 dim(lines2)
-write.table(lines2, titre_lines, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
-# column 1 = LINE = ID of variety (string, 3 185 levels = as many as varieties ID)
-# column 2 = line2 = modified ID of variety (use in further analysis) (string, 3 185 levels)
-# column 3 = phenotyped = variety phenotyped  (logical)
-# column 4 = blue = estimate of variety yield (numeric)
-# column 5 = genotyped = variety was genotyped (logical)
-# column 6 = used_as_parent = variety used as parent (logical, but NA for now)
-# dim file : 3185*6
+write.table(lines2, titre_lines_output, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
+
 
 
 sessionInfo()

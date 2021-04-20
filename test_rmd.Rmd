@@ -1,0 +1,38 @@
+---
+title: "test"
+author: "Alice Danguy des Déserts"
+date: "15 mars 2021"
+output: html_document
+---
+
+
+
+```{r}
+
+suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(compiler))
+suppressPackageStartupMessages(library(ggpubr))
+suppressPackageStartupMessages(library(MASS))
+suppressPackageStartupMessages(library(viridis))
+suppressPackageStartupMessages(library(ggplot2))
+
+
+
+variables <- commandArgs(trailingOnly=TRUE)
+cat("\n\nVariables : \n")
+print(variables)
+cat("\n\n")
+
+titre_crosses_WE <- variables[1]
+titre_markers <- variables[2]
+titre_lines2 <- variables[3]
+
+
+titre_crosses_WE <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/crosses_WE.txt"
+titre_markers <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/markers_estimated.txt"
+titre_lines2 <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_g2.txt"
+
+
+```
+

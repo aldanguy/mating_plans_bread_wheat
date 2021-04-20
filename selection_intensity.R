@@ -23,13 +23,13 @@ cat("\n\nVariables : \n")
 print(variables)
 cat("\n\n")
 
-d <- as.numeric(variables[1])
-titre_selection_intensity <- variables[2]
+D <- as.numeric(variables[1])
+titre_selection_intensity_output <- variables[2]
 
 # d <- 3300
 # titre_selection_intensity <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/tab3_selection_intensity.txt"
 
-deltaq <- 10^(floor(log10(1/d)))
+deltaq <- 10^(floor(log10(1/D)))
 
 
 # raw table of selection intensity
@@ -63,12 +63,12 @@ tab3 <- tab2 %>% arrange(desc(qij)) %>%
 
 
 
-cat("\n\nOUTPUT : selection intensity table \n\n")
+cat("\n\n OUTPUT : selection intensity table \n\n")
 head(tab3)
-write.table(tab3, titre_selection_intensity, quote=F, dec=".", sep="\t", row.names = F, col.names = T)
-# column 1 = qij = selection rate
-# column 2 = int_qij = selection intensity
-# dim 9999*2
+tail(tab3)
+dim(tab3)
+write.table(tab3, titre_selection_intensity_output, quote=F, dec=".", sep="\t", row.names = F, col.names = T)
+
 
 
 sessionInfo()

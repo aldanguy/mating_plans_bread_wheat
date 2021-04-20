@@ -26,99 +26,94 @@ cat("\n\n")
 
 
 
-titre_gebv <- variables[1]
-titre_snp_effects <- variables[2]
-titre_lines <- variables[3]
-titre_markers_filtered_subset <- variables[4]
-titre_markers_filtered_subset_estimated <- variables[5]
-titre_lines_estimated <- variables[6]
-simulation <- variables[7]
-subset <- variables[8]
-run <- as.numeric(variables[9])
-h2 <- as.numeric(variables[10])
+titre_gebv_input <- variables[1]
+titre_snp_effects_input <- variables[2]
+titre_lines_input <- variables[3]
+titre_markers_input <- variables[4]
+titre_markers_output <- variables[5]
+titre_lines_output <- variables[6]
+type <- variables[7]
 
 
 
- #  titre_gebv <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/allcm/simFALSE/g0/r0/SNP_predictions_allcm_simFALSE_g0_r0.txt"
- #  titre_snp_effects <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/allcm/simFALSE/g0/r0/snp_sol_allcm_simFALSE_g0_r0.txt"        
- #  titre_lines <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"                                                                  
- #  titre_markers_filtered_subset <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/markers_filtered.txt"                                                       
- #  titre_markers_filtered_subset_estimated <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/allcm/simFALSE/g0/r0/markers_allcm_simFALSE_g0_r0.txt"        
- #  subset <- "all"                                                                                                                                   
- #  generation <- "0"                                                                                                                                     
- #  run <-  "0"                                                                                                                                     
- #  simulation <- "FALSE"                                                                                                                                 
- #  titre_lines_estimated <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/allcm/simFALSE/g0/r0/lines_allcm_simFALSE_g0_r0.txt"  
- # h2 <- 0.25
+  # titre_gebv <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/simFALSE/10cm/SNP_predictions_simFALSE_10cm.txt"
+  # titre_snp_effects <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/simFALSE/10cm/snp_sol_simFALSE_10cm.txt"        
+  # titre_lines <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/lines.txt"                                                    
+  # titre_markers_filtered_subset <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/markers_filtered.txt"                                         
+  # titre_markers_filtered_subset_estimated <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/simFALSE/10cm/markers_simFALSE_10cm.txt"        
+  # titre_lines_estimated <- "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/blupf90/simFALSE/10cm/lines_simFALSE_10cm.txt"          
+  # type <-  "simFALSE_10cm"  
  
 cat("\n\n INPUT : gebv \n\n")
-gebv <- fread(titre_gebv)
-head(gebv)
-dim(gebv)
+fread(titre_gebv_input) %>% head()
+fread(titre_gebv_input) %>% tail()
+fread(titre_gebv_input) %>% dim()
+
 
 
 
 cat("\n\n INPUT : snp effects \n\n")
-snp_effects <- fread(titre_snp_effects)
-head(snp_effects)
-dim(snp_effects)
+fread(titre_snp_effects_input) %>% head()
+fread(titre_snp_effects_input) %>% tail()
+fread(titre_snp_effects_input) %>% dim()
+
 
 cat("\n\n INPUT : lines info \n\n")
-lines <- fread(titre_lines)
-head(lines)
-dim(lines)
+fread(titre_lines_input) %>% arrange(ID, type) %>% head()
+fread(titre_lines_input) %>% arrange(ID, type) %>% tail()
+fread(titre_lines_input) %>% arrange(ID, type)  %>% filter(used_as_parent==T & phenotyped==T) %>% head()
+fread(titre_lines_input) %>% dim()
+
+
 
 cat("\n\n INPUT : lines info \n\n")
-markers <- fread(titre_markers_filtered_subset)
-head(markers)
-dim(markers)
+fread(titre_markers_input) %>% head()
+fread(titre_markers_input) %>% tail()
+fread(titre_markers_input) %>% dim()
 
 
-if (simulation=="TRUE"){
-  
-  nom_mkrs=paste0("qe_",subset,"cm_h",h2,"_r",run)
-  nom_gebv=paste0("gebv_qr_",subset,"cm_h",h2,"_r",run)
-  motif_to_supress="gebv_qr"
-  
-} else if (simulation=="FALSE"){
-  
-  nom_mkrs=paste0("qb_",subset,"cm")
-  nom_gebv=paste0("gebv_qb_",subset,"cm")
-  motif_to_supress="gebv_qb_"
-  
-}
 
 
-snp_effects2 <- snp_effects %>% dplyr::select(chr, pos, snp_effect)%>%
-  full_join(markers %>% mutate(chr2=as.numeric(as.factor(chr))), by=c("chr"="chr2", "pos"="pos")) %>%
-  dplyr::select(chr.y, region, pos, marker, dcum_WE, dcum_EE, dcum_WA, dcum_EA, dcum_CsRe, snp_effect, starts_with("qb"), starts_with("qr")) %>%
-  rename(chr=chr.y) %>%
-  arrange(chr, pos) %>%
-  mutate(snp_effect=ifelse(is.na(snp_effect), 0, snp_effect)) %>%
-  rename(!!nom_mkrs:=snp_effect)  %>%
-  dplyr::select(everything(), starts_with("qb"), starts_with("qr"), starts_with("qe"))
+snp_effects2 <- fread(titre_snp_effects_input) %>%
+  rename(chr2=chr) %>%
+  rename(value=snp_effect) %>%
+  dplyr::select(chr2, pos, value)%>%
+  full_join(fread(titre_markers_input) %>%
+              arrange(chr, pos, marker, population)%>%
+              dplyr::select(-one_of("value", 'type')) %>%
+              mutate(chr2=as.numeric(as.factor(chr))) , 
+            by=c("chr2", "pos")) %>%
+  dplyr::select(-chr2)%>%
+  mutate(value=ifelse(is.na(value), 0, value)) %>%
+  mutate(type=paste0("marker_",type))  %>%
+  arrange(chr, pos, marker, population) %>%
+  dplyr::select(one_of(colnames(fread(titre_markers_input) %>%
+                                        dplyr::select(-one_of("value", 'type'))), "type", "value"))
 
 
 
 
 
-lines2 <- lines %>% dplyr::select(-matches(motif_to_supress)) %>%
-  full_join(gebv %>% rename(line2=V1, gebv=V3) %>% dplyr::select(-V2), by="line2") %>%
-  rename(!!nom_gebv:=gebv) %>%
-  arrange(line2) %>%
-  dplyr::select(everything(), starts_with("tbv"), starts_with("gebv"), starts_with("blue"))
-
+lines2 <- fread(titre_lines_input)  %>%
+  arrange(ID) %>%
+  dplyr::select(-one_of("value", "type")) %>%
+  inner_join(fread(titre_gebv_input) %>% rename(ID=V1, value=V3) %>% dplyr::select(-V2), by="ID") %>%
+  mutate(type=paste0("gebv_",type))%>%
+  arrange(ID) %>%
+  dplyr::select(one_of(colnames(fread(titre_lines_input) %>%
+                                  dplyr::select(-one_of("value", 'type'))), "type", "value"))
 
 
 
 ##########################
 
 
-cat("\n\n OUTPUT : correspondance between true ID and modified ID of lines \n\n")
+cat("\n\n OUTPUT : lines info\n\n")
 head(lines2)
 tail(lines2)
+lines2 %>% filter(used_as_parent==T & phenotyped==T) %>% head()
 dim(lines2)
-write.table(lines2, titre_lines_estimated, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
+write.table(lines2, titre_lines_output, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
 # column 1 = LINE = ID of variety (string, 3 185 levels = as many as varieties ID)
 # column 2 = line2 = modified ID of variety (use in further analysis) (string, 3 185 levels)
 # column 3 = phenotyped = variety phenotyped  (logical)
@@ -133,7 +128,8 @@ write.table(lines2, titre_lines_estimated, col.names = T, row.names = F, dec="."
 
 cat("\n\n OUTPUT : markers with markers effects \n\n")
 head(snp_effects2)
+tail(snp_effects2)
 dim(snp_effects2)
-write.table(snp_effects2, titre_markers_filtered_subset_estimated, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
+write.table(snp_effects2, titre_markers_output, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
 
 sessionInfo()
