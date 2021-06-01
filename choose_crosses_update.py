@@ -68,7 +68,6 @@ import cplex as cplex
 
 
 
-
 ############ prepare data
 
 
@@ -140,6 +139,9 @@ parents=set(parents)
 # initialize cplex model
 c=cplex.Cplex()
 c.parameters.threads.set(nbcores)
+c.parameters.timelimit.set(14400.0)
+
+
 
 # ask cplex to maximise the fitness function
 
@@ -166,8 +168,12 @@ for couple in cij:
 
     create_cij_boolean=c.variables.add(names = [couple+"_boolean"], lb = [0],  ub = [1],types = ["B"])
     couples_used.append(couple+"_boolean")
-    big_M_constraint1=c.linear_constraints.add(lin_expr = [cplex.SparsePair([couple+"_boolean", couple],  [Dmin, -1])],   senses = ["L"], rhs = [0])
     big_M_constraint2=c.linear_constraints.add(lin_expr = [cplex.SparsePair([couple, couple+"_boolean"],  [1, -1000000])],   senses = ["L"], rhs = [0])
+    if Dmin == 0:
+        big_M_constraint1=c.linear_constraints.add(lin_expr = [cplex.SparsePair([couple+"_boolean", couple],  [1, -1])],   senses = ["L"], rhs = [0])
+    else:
+        big_M_constraint1=c.linear_constraints.add(lin_expr = [cplex.SparsePair([couple+"_boolean", couple],  [Dmin, -1])],   senses = ["L"], rhs = [0])
+
 
 
 # control number of crosses
@@ -242,6 +248,12 @@ dataframe["value"]=v2
 dataframe=dataframe[0:len(crosses)]
 dataframe.sort_values("value",  ascending=False)
 
+
+
+fitness=sol.get_objective_value()
+
+print("fitness value")
+print(fitness)
 
 # save
 print("OUTPUT : choosen crosses and parents")

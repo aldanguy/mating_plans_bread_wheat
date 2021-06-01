@@ -207,8 +207,16 @@ genotyping2 <- genotyping2 %>%
   mutate_if(is.integer,~.+1) 
 colnames(genotyping2) <- str_replace_all(colnames(genotyping2), "AX.","AX-")
 
-lines2 <- fread(titre_lines_input) %>% mutate(used_as_parent= ID %in% genotyping2$ID) %>% filter(used_as_parent==T) %>% arrange(ID) %>%
-  dplyr::select(LINE, ID, phenotyped, genotyped, used_as_parent, type, value)
+lines2 <- fread(titre_lines_input) %>% mutate(used_as_parent= ID %in% genotyping2$ID) %>% 
+  filter(used_as_parent==T) %>% 
+  arrange(ID) %>%
+  mutate(type="pheno") %>%
+  mutate(sim="FALSE") %>%
+  mutate(qtls=NA) %>%
+  mutate(h=NA) %>%
+  mutate(r=NA) %>%
+  mutate(g=NA) %>%
+  dplyr::select(ID, value, type, sim, qtls, h, r,g)
 
 
 cat("\n\n OUTPUT : genotyping \n\n")

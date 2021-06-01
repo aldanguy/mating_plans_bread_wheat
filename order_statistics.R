@@ -66,7 +66,7 @@ for (x in c(2:D)){
 
 
 
-tab2 <- rbind(tab2, data.frame(dij=1, int_best_dij=0))
+tab2 <- rbind(tab2, data.frame(dij=1, int_best_dij=0), data.frame(dij=0, int_best_dij=0))
 tab2 <- tab2 %>% arrange(dij)
 
 

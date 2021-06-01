@@ -5,46 +5,75 @@ suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(compiler))
 
 
-simulate_QTL <- function(population, cM, variance_TBV, geno, genetic_map_raw){
+simulate_QTL <- function(population, subset, variance_TBV, geno, genetic_map_raw){
   
   
   
-  
+  maf<- as.vector(unlist(apply(geno[,-1], 2, function(x) min(sum(x)/(length(x)*2), 1-sum(x)/(length(x)*2)))))
 
   
   genetic_map_raw <- genetic_map_raw %>% filter(population==!!population) %>%
     dplyr::select(chr, region, pos, marker, dcum) %>%
     arrange(chr, pos, marker) %>%
     unique()
-  cM <- gsub("cm","", cM)
   
   
-  if (cM =="all"){
+  if (subset =="all"){
     
     genetic_map_subset <- genetic_map_raw 
     
-  } else if  (cM == "chr") {
+  } else if  (subset == "chr") {
     
 
     
     genetic_map_subset <- genetic_map_raw %>% 
+      mutate(maf=maf) %>%
+      filter(maf >=0.1) %>%
       group_by(chr) %>% 
       mutate(n=1:n()) %>%
       mutate(random=sample(1:n(), size=1, replace=F)) %>%
       filter(n==random) %>%
       ungroup()
     
+  } else if (grepl("mb", subset)) {
     
+    mb <- as.numeric(gsub("mb","", subset))
     
-  } else {
-    
-    cM = as.numeric(cM)
     
     genetic_map_subset <- genetic_map_raw %>%
+      mutate(maf=maf) %>%
+      filter(maf >=0.1) %>%
+      mutate(pos=pos/1e6) %>%
+      mutate(segment=plyr::round_any(pos, mb))%>%
+      group_by(chr, segment) %>%
+      slice(n=sample(1:n(), size=1, replace=F)) %>%
+      ungroup() 
+    
+    
+  } else if (grepl("rand", subset)) {
+    
+    
+    nrandom <- as.numeric(gsub("rand","", subset))
+    
+    genetic_map_subset <- genetic_map_raw %>%
+      mutate(maf=maf) %>%
+      filter(maf >=0.1) %>%
+      slice(sample(1:n(),size=nrandom, replace = F ))
+
+    
+    
+  } else if (grepl("cm",subset)) {
+    
+    cM <- as.numeric(gsub("cm","", subset))
+    
+    
+
+    genetic_map_subset <- genetic_map_raw %>%
+      mutate(maf=maf) %>%
+      filter(maf >=0.1) %>%
       mutate(segment=plyr::round_any(dcum, cM)) %>%
       group_by(chr, segment) %>%
-      dplyr::mutate(n=rep(1:n())) %>%
-      filter(n==n()) %>%
+      slice(n=sample(1:n(), size=1, replace=F)) %>%
       ungroup() 
     
   }

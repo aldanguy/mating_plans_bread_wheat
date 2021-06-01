@@ -112,7 +112,7 @@ m2 <- create.gpData(geno=m, map=map, map.unit = 'bp')
 
 genotyping_matrix_imputed <- codeGeno(m2, impute = T,
                                       impute.type = "beagle",
-                                      cores=nbcores )$geno
+                                      cores=nbcores, label.heter=NULL )$geno
 
 genotyping_matrix_imputed <- genotyping_matrix_imputed %>% as.data.frame() %>%
   rownames_to_column(var="ID") %>%

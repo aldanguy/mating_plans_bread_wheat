@@ -251,6 +251,16 @@ rm ${r_prepare}markers_*.txt
 rm ${r_prepare}genotyping_*.txt
 rm ${r_prepare}genetic_map_*.txt
 
+populations=$(cut -f5 ${r_prepare}markers.txt | sort | uniq | grep -v "population")
+
+for p in ${populations[*]}
+    do
+    head -n1 ${r_prepare}markers.txt > ${r_prepare}markers_${p}.txt
+    grep ${p} ${r_prepare}markers.txt >> ${r_prepare}markers_${p}.txt
+done
+
+
+
 
 date +'%Y-%m-%d-%T'
 

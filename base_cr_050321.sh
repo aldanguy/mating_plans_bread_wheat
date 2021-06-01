@@ -193,7 +193,7 @@ cm=(all 20 chr)
 
 heritability=(0.8)
 
-nbcores=2
+nbcores=4
 
 
 keep_all=FALSE

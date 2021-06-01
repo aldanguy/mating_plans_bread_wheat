@@ -19,7 +19,6 @@ date +'%Y-%m-%d-%T'
 
 
 base=${1}
-generation=${2}
 
 
 
@@ -29,9 +28,8 @@ source ${base}
 
 
 
-
 file_jobs=${r_log_value_crosses_jobs}jobs_values_crosses.txt
-
+rm ${file_jobs}
 
 
 simulation=FALSE
@@ -54,15 +52,15 @@ echo "${job2_2}" >> ${file_jobs}
 simulation=TRUE
 job_out=${r_log_value_crosses_gblup}gblup_1_sim${simulation}.out
 job_name=gblup${simulation}
-job2_3=$(sbatch -o ${job_out} -J ${job_name} --mem=10G --dependency=afterok:${job2_2} --parsable ${r_scripts}gblup_1.sh ${base} ${simulation})
+job2_3=$(sbatch -o ${job_out} -J ${job_name} --mem=10G --dependency=afterok:${job2_2}:${job2_1} --parsable ${r_scripts}gblup_1.sh ${base} ${simulation})
 echo "${job_out} =" >> ${file_jobs}
 echo "${job2_3}" >> ${file_jobs}
     
 
 job_out=${r_log_value_crosses_crosses}crosses_1.out
 job_name=v
-#job2_4=$(sbatch -o ${job_out} -J ${job_name} --dependency=afterok:${job2_3} --parsable ${r_scripts}crosses_1.sh ${base} ${generation})
-job2_4=$(sbatch -o ${job_out} -J ${job_name} --parsable ${r_scripts}crosses_1.sh ${base} ${generation})
+#job2_4=$(sbatch -o ${job_out} -J ${job_name} --dependency=afterok:${job2_3} --parsable ${r_scripts}crosses_1.sh ${base})
+job2_4=$(sbatch -o ${job_out} -J ${job_name} --parsable ${r_scripts}crosses_1.sh ${base})
 
 echo "${job_out} =" >> ${file_jobs}
 echo "${job2_4}" >> ${file_jobs}

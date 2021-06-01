@@ -26,6 +26,7 @@ titre_crosses_input <-variables[1]
 nbcrosses <- as.numeric(variables[2])
 nbprogeny <- as.numeric(variables[3])
 titre_crosses_subset_output <- variables[4]
+progeny <- variables[5]
 
 
 
@@ -39,6 +40,7 @@ titre_crosses_subset_output <- variables[4]
 
 
 
+progeny2=as.vector(unlist(strsplit(split="F", progeny)))[1]
 
 
 
@@ -47,6 +49,18 @@ crosses <- fread(titre_crosses_input)
 head(crosses)
 tail(crosses)
 dim(crosses)
+
+
+crosses <- crosses%>% 
+  rename_at(vars(matches(paste0("sd_",progeny2))), ~ "sd") %>%
+  rename_at(vars(matches(paste0("uc_extreme_",progeny2))), ~ "ucextreme") %>%
+  rename_at(vars(matches(paste0("uc_",progeny2))), ~ "uc") %>%
+  rename_at(vars(matches(paste0("logw_",progeny2))), ~ "logw") %>%
+  rename(uc_extreme=ucextreme)
+
+
+
+
 
 
 choose_crosses <- function(crosses, statistique, nb_choosen_crosses){

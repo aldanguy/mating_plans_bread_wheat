@@ -56,11 +56,21 @@ r_value_crosses=${r_big_files}value_crosses/
 r_value_crosses_variance_crosses=${r_value_crosses}variance_crosses/
 r_value_crosses_simulate_qtls=${r_value_crosses}simulate_qtls/
 r_value_crosses_crosses=${r_value_crosses}crosses/
+r_value_crosses_gblup=${r_value_crosses}gblup/
+
+r_value_crosses_markers=${r_value_crosses}markers/
+r_value_crosses_lines=${r_value_crosses}lines/
+
+
+
 
 mkdir -p ${r_value_crosses}
 mkdir -p ${r_value_crosses_variance_crosses}
 mkdir -p ${r_value_crosses_crosses}
 mkdir -p ${r_value_crosses_simulate_qtls}
+mkdir -p ${r_value_crosses_gblup}
+mkdir -p ${r_value_crosses_markers}
+mkdir -p ${r_value_crosses_lines}
 
 
 
@@ -91,6 +101,7 @@ r_best_crosses_pedigree=${r_best_crosses}pedigree/
 r_best_crosses_best_crosses=${r_best_crosses}best_crosses/
 r_best_crosses_crosses=${r_best_crosses}crosses/
 r_best_crosses_haplotypes=${r_best_crosses}haplotypes/
+r_best_crosses_perf=${r_best_crosses}perf/
 
 
 mkdir -p ${r_best_crosses_genotypes}
@@ -99,6 +110,7 @@ mkdir -p ${r_best_crosses_pedigree}
 mkdir -p ${r_best_crosses_best_crosses}
 mkdir -p ${r_best_crosses_crosses}
 mkdir -p ${r_best_crosses_haplotypes}
+mkdir -p ${r_best_crosses_perf}
 
 
 
@@ -119,13 +131,18 @@ r_log_sd_predictions=${r}log/sd_predictions/
 mkdir -p ${r_log_sd_predictions}
 
 
-#crossval
+
+r_ldak=${r_big_files}ldak/
+mkdir -p ${r_ldak}
 
 
-r_crossval=${r}crossval/
-mkdir -p ${r_crossval}
-r_log_crossval=${r_log}crossval/
-mkdir -p ${r_log_crossval}
+r_log_ldak=${r_log}ldak/
+mkdir -p ${r_log_ldak}
+
+
+
+
+
 
 
 # graphs
@@ -187,13 +204,14 @@ titre_path_cplex="/work/degivry/CPLEX_Studio128/cplex/python/3.6/x86-64_linux/cp
 
 D=10000
 
-nb_run=10
+nb_run=20
 
-cm=(all 20 chr)
+#qtls=(all 20cm chr 20mb 100rand)
+qtls=(chr 300rand)
 
-heritability=(0.8)
+heritability=(1.0 0.4)
 
-nbcores=2
+nbcores=4
 
 
 keep_all=FALSE
@@ -201,9 +219,11 @@ keep_all=FALSE
 population_ref=WE
 
 
-criteres=(gebv uc logw uc_extreme)
+criteres=(gebv uc logw uc_extreme embv topq)
 
-affixes=(simple real)
+genomic=(basic ldak)
+
+programmes=(real)
 
 nb_jobs_allowed=300
 

@@ -6,80 +6,131 @@ date +'%Y-%m-%d-%T'
 
 
 base=${1}
-generation=${2}
 
 
 source ${base}
     
-
-types=$(cat ${r_value_crosses}markers_estimated.txt | cut -f7 | sort | uniq | grep -v "type" )
-echo ${types[*]}
 file_jobs=${r_log_value_crosses_jobs}jobs_crosses_2.txt
 
+method="basic"
+population_variance=${population_ref}
 
-
-
-for type in ${types[*]}
-do
-
-
-
-    
-    
-    subset=$(echo ${type} | grep -e "chrcm" | wc -l) # means that dealing with one QTL per chr. In this cas, genetic map doesnt matter, and only one pop is studied
-    
-    if [ ${subset} -eq 0 ]
-        then 
-        populations2=${populations[*]}
-    else
-        populations2=(WE)
-    fi
-
-    
-    for population in ${populations2[*]} # to replace by populations2
+simulations=(FALSE TRUE)
+datas=(real estimated)
+for simulation in ${simulations[*]}
     do
-
-
-
-
-
-        while (( $(squeue -u adanguy | wc -l) >= ${nb_jobs_allowed} ))
-            do    
-                sleep 1s
-        done
-
-
-
-
-
-        motif=$(echo ${type} | sed "s/marker_//g")
-        ID1=g${generation}_${motif}_${population}
-
-        echo ${ID1}
-  
-        job_out=${r_log_value_crosses_crosses}crosses_2_${ID1}.out
     
-        job_name=${motif}${population}
+    if [ ${simulation} == "FALSE" ]
+        then
         
- 
-            job_name=${motif}${population}
-
-            job=$(sbatch -o ${job_out} -J ${job_name} --mem=3G --parsable ${r_scripts}crosses_2.sh ${base} ${generation} ${type} ${population}) 
-
-    
-    
+        type=simFALSE_g${method}
+        typeshort=$(echo ${type} | sed "s/_/./g")
+        echo ${type}_${population_variance}
+        job_out=${r_log_value_crosses_crosses}crosses_2_${type}_${population_variance}.out
+        job_name=${typeshort}${population_variance}
+         job=$(sbatch -o ${job_out} -J ${job_name} --mem=3G --parsable ${r_scripts}crosses_2.sh ${base} ${type} ${population_variance}) 
         echo "${job_out} =" >> ${file_jobs}
         echo "${job}" >> ${file_jobs}
-        
+        while (( $(squeue -u adanguy | wc -l) >= ${nb_jobs_allowed} ))
+            do    
+            sleep 1s
+        done
         sed -i '/^$/d' ${file_jobs}
         while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 10 )) 
             do    
             sleep 1s
         done
+                        
+
+
+
         
-    done
-	
+    elif [ ${simulation} == "TRUE" ]
+        then
+        
+        for data in ${datas[*]}
+            do
+        
+        
+            for subset in ${qtls[*]}
+                do
+            
+                for r in $(seq 1 ${nb_run})
+                    do
+                    
+            
+                    if [ ${data} == "real" ]
+                        then
+                        
+                        
+                        
+                        type=simTRUE_${subset}_r${r}
+
+                        
+                        
+                        typeshort=$(echo ${type} | sed "s/_/./g")
+                        echo ${type}_${population_variance}
+                        job_out=${r_log_value_crosses_crosses}crosses_2_${type}_${population_variance}.out
+                        job_name=${typeshort}${population_variance}
+                        job=$(sbatch -o ${job_out} -J ${job_name} --mem=3G --parsable ${r_scripts}crosses_2.sh ${base} ${type} ${population_variance}) 
+                        echo "${job_out} =" >> ${file_jobs}
+                        echo "${job}" >> ${file_jobs}
+                        while (( $(squeue -u adanguy | wc -l) >= ${nb_jobs_allowed} ))
+                            do    
+                            sleep 1s
+                        done
+                         sed -i '/^$/d' ${file_jobs}
+                        while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 10 )) 
+                            do    
+                            sleep 1s
+                        done
+                        
+                        
+                        
+            
+                    elif [ ${data} == "estimated" ]
+                        then
+                
+        
+        
+                        for h in ${heritability[*]}
+                            do
+    
+
+                    
+                            type=simTRUE_${subset}_h${h}_r${r}_g${method}
+                            
+
+                        
+                            typeshort=$(echo ${type} | sed "s/_/./g")
+                            echo ${type}_${population_variance}
+                            job_out=${r_log_value_crosses_crosses}crosses_2_${type}_${population_variance}.out
+                            job_name=${typeshort}${population_variance}
+                            job=$(sbatch -o ${job_out} -J ${job_name} --mem=3G --parsable ${r_scripts}crosses_2.sh ${base} ${type} ${population_variance}) 
+                            echo "${job_out} =" >> ${file_jobs}
+                            echo "${job}" >> ${file_jobs}
+                            while (( $(squeue -u adanguy | wc -l) >= ${nb_jobs_allowed} ))
+                                do    
+                                sleep 1s
+                            done     
+                            sed -i '/^$/d' ${file_jobs}
+                            while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 10 )) 
+                                do    
+                                sleep 1s
+                            done
+
+                        done
+                    fi
+                done
+            done
+        done
+    fi
 done
+                        
+                
+                
+                
+
 
 
 sed -i '/^$/d' ${file_jobs}

@@ -10,9 +10,9 @@ sort_genotyping_matrix <- function(genotyping_matrix_file, markers_file){
   
   
   ordre_marqueurs <- markers_file %>%
-    dplyr::select(chr, pos, marker) %>%
+    dplyr::select(chr, dcum, marker) %>%
     unique() %>%
-    arrange(chr, pos, marker) %>%
+    arrange(chr, dcum, marker) %>%
     dplyr::select(marker) %>%
     unlist() %>%
     as.vector()

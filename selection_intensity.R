@@ -54,7 +54,7 @@ for (r in q){
 # maxx <- which.max(tab$x)
 minx <- which.min(tab$x)
 # tab2 <- rbind(tab2, data.frame(s=tab$x[maxx], int=tab$i[maxx], q=0))
-tab2 <- rbind(tab2, data.frame(s=tab$x[minx], int_qij=0, qij=1))
+tab2 <- rbind(tab2, data.frame(s=tab$x[minx], int_qij=0, qij=1), data.frame(s=NA, int_qij=1e6,qij=0 ))
 
 
 tab3 <- tab2 %>% arrange(desc(qij)) %>% 

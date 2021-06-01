@@ -33,7 +33,9 @@ titre_function_calcul_index_variance_crosses <- variables[4]
 selection_treshold <- as.numeric(variables[5])
 selection_rate <- as.numeric(variables[6])
 titre_crosses_output <- variables[7]
-generation <- as.numeric(variables[8])
+type <- variables[8]
+population_variance <- variables[9]
+
 
 # titre_variance_crosses_input <-  "/work2/genphyse/dynagen/adanguy/croisements/050321/value_crosses/crosses/variance_crosses_g1_simTRUE_20cm_r1_WE.txt"
 # titre_lines_input <- "/work2/genphyse/dynagen/adanguy/croisements/050321/value_crosses/lines_estimated_simTRUE_20cm_r1.txt"               
@@ -87,6 +89,53 @@ extraction <- function(string, character_split, number){
   
 }
 
+
+
+
+sim=gsub("sim","",as.vector(unlist(strsplit(type, split="_")))[1])
+
+
+if (sim == "FALSE"){
+  
+  g=gsub("g","",as.vector(unlist(strsplit(type, split="_")))[2])
+  h=NA
+  r=NA
+  qtls=NA
+  
+  etat="estimated"
+  
+  
+  
+} else if (sim=="TRUE") {
+  
+  
+  if (grepl("_h", type)){
+    
+    qtls=as.vector(unlist(strsplit(type, split="_")))[2]
+    h=gsub("h","",as.vector(unlist(strsplit(type, split="_")))[3])
+    r=paste0(as.vector(unlist(strsplit(type, split="_")))[4],"r")
+    g=gsub("g","",as.vector(unlist(strsplit(type, split="_")))[5])
+    etat="estimated"
+    
+    
+    
+    
+  } else if (!grepl("_h", type)) {
+    
+    qtls=as.vector(unlist(strsplit(type, split="_")))[2]
+    r=paste0(as.vector(unlist(strsplit(type, split="_")))[3],"r")
+    h=NA
+    g=NA
+    etat="real"
+    
+    
+    
+  }
+  
+  
+}
+
+
 selection_intensity2=selection_intensity %>%
   filter(qij==!!selection_rate) %>%
   dplyr::select(int_qij) %>% 
@@ -98,54 +147,14 @@ selection_intensity3=selection_intensity %>%
   unlist() %>% as.vector()
 
 
-type=unique(variance_crosses$type)
-
-
-if (length(grep("_h", type))==0 & length(grep("TRUE", type)) > 0){
-  
-  sim=extraction(type, "_", 2)
-  subset=extraction(type, "_", 3)
-  r=extraction(type, "_", 4)
-  type2=paste0("tbv_",sim,"_",subset,"_",r)
-  
-  
-} else if (length(grep("_h", type))==0 & length(grep("TRUE", type)) == 0){
-  
-  sim=extraction(type, "_", 2)
-  subset=extraction(type, "_", 3)
-  type2=paste0("gebv_",sim,"_",subset)
-  
-  
-} else {
-  
-  sim=extraction(type, "_", 2)
-  subset=extraction(type, "_", 3)
-  h=extraction(type, "_", 4)
-  r=extraction(type, "_", 5)
-  type2=paste0("gebv_",sim,"_",subset,"_",h,"_",r)
-  
-  
-}
-
-
-if (grepl("_h", type) | grepl("simFALSE", type)){
-  
-  
-  motif_line <- "gebv"
-  
-} else {
-  
-  motif_line <- "tbv"
-  
-}
-
-lines2 <- lines %>% filter(used_as_parent==T & generation==!!generation & endsWith(type, type2)==T & grepl(motif_line, type)) %>% arrange(ID) 
+lines2 <- lines  %>% arrange(ID) 
 nind <- nrow(lines2)
 nind
 
 variance_crosses2 <- variance_crosses %>% arrange(P1, P2) %>%
-  group_by(P1, P2, generation, type, population) %>%
-  summarise(sd=sqrt(sum(variance))) %>%
+  group_by(P1, P2, type, population_variance) %>%
+  summarise(sd_RILs=sqrt(sum(variance_RILs)),
+            sd_HDs=sqrt(sum(variance_HDs))) %>%
   ungroup()
 
 lines_to_keep <- calcul1(nind)
@@ -159,11 +168,30 @@ rm(lines, lines2, lines_to_keep)
 
 crosses <- variance_crosses2 %>% mutate(gebv=u) %>%
   rowwise() %>%
-  mutate(logw=log10(pnorm(selection_treshold, gebv, sd))) %>%
-  mutate(uc=gebv+selection_intensity2*sd) %>%
-  mutate(uc_extreme=gebv + selection_intensity3*sd) %>% 
+  mutate(logw_RILs=log10(pnorm(selection_treshold, gebv, sd_RILs))) %>%
+  mutate(uc_RILs=gebv+selection_intensity2*sd_RILs) %>%
+  mutate(uc_extreme_RILs=gebv + selection_intensity3*sd_RILs) %>% 
+  mutate(logw_HDs=log10(pnorm(selection_treshold, gebv, sd_HDs))) %>%
+  mutate(uc_HDs=gebv+selection_intensity2*sd_HDs) %>%
+  mutate(uc_extreme_HDs=gebv + selection_intensity3*sd_HDs) %>% 
   arrange(P1, P2) %>%
-  dplyr::select(P1, P2, generation, type, population, gebv, sd, logw, uc, uc_extreme) %>%
+  mutate(sim=!!sim) %>%
+  mutate(qtls=!!qtls) %>%
+  mutate(h=!!h) %>%
+  mutate(r=!!r) %>%
+  mutate(g=!!g) %>%
+  mutate(population_variance=!!population_variance) %>%
+  mutate(type=!!etat) %>%
+  dplyr::select(P1, P2, type, sim, qtls, h, r, g, population_variance, gebv, 
+                sd_RILs, 
+                sd_HDs, 
+                logw_RILs, 
+                logw_HDs, 
+                uc_RILs, 
+                uc_HDs, 
+                
+                uc_extreme_RILs,
+                uc_extreme_HDs) %>%
   ungroup() %>%
   as.data.frame()
 

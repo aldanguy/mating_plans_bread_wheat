@@ -1,5 +1,7 @@
 #!/bin/bash
 RANDOM=1
+date +'%Y-%m-%d-%T'
+
 
 
 
@@ -10,14 +12,10 @@ base=${1}
 source ${base}
 
 file_jobs=${r_log_value_crosses_jobs}jobs_simulate_qtls.txt
-simulation=TRUE
-output_markers=${r_value_crosses}markers_estimated.txt
-output_lines=${r_value_crosses}lines_estimated.txt
-folder_list=${r_log_value_crosses_gblup}folder_list_estimated.txt
 
 for h in ${heritability[*]}
     do
-    for subset in ${cm[*]}
+    for subset in ${qtls[*]}
         do
         
         for r in $(seq 1 ${nb_run})
@@ -29,7 +27,7 @@ for h in ${heritability[*]}
                 sleep 1s
             done
 
-            type=sim${simulation}_${subset}cm_h${h}_r${r}
+            type=simTRUE_${subset}_h${h}_r${r}
         
         
         
@@ -37,14 +35,11 @@ for h in ${heritability[*]}
         
             typeshort=$(echo ${type} | sed "s/_/./g")
             echo ${type}
-            r_save=${r_value_crosses_simulate_qtls}${type}/
-            mkdir -p ${r_save}
             job_out=${r_log_value_crosses_simulate_qtls}simulate_qtls_${type}.out
             job_name=${typeshort}
-            job=$(sbatch -o ${job_out} -J ${job_name} --time=00:10:00 --parsable ${r_scripts}simulate_qtls_2.sh ${base} ${type} ${r_save})
+            job=$(sbatch -o ${job_out} -J ${job_name} --parsable ${r_scripts}simulate_qtls_2.sh ${base} ${type})
             echo "${job_out} =" >> ${file_jobs}
             echo "${job}" >> ${file_jobs}
-            echo "${r_save}" >> ${folder_list}
 
 
             
@@ -59,27 +54,55 @@ while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 1 ))
     sleep 1s
 done
 
-k=0
 
-cat ${folder_list} | while read folder 
+
+
+   k=0
+   
+   for h in ${heritability[*]}
         do
-    
         if [ ${k} -eq 0 ]
             then
-            
-            cat ${folder}lines.txt > ${output_lines}
-            
-        elif [ ${k} -eq 1 ]
-            then
-            tail -n+2 ${folder}lines* >> ${output_lines}
-            cat ${folder}markers* > ${output_markers}
-
-            
-        else 
-            tail -n+2 ${folder}lines* >> ${output_lines}
-            tail -n+2 ${folder}markers* >> ${output_markers}
+            k=1
+            for f in $(ls ${r_value_crosses_markers} | grep "real")
+                do 
+                echo ${f}
+                    if [ $(echo ${f} | grep "h${h}" | wc -l ) -eq 1 ]
+                        then
+                        new_title=$(echo ${f} | sed "s|_h.*_r|_r|g")
+                        echo ${new_title}
+                        cp ${r_value_crosses_markers}${f} ${r_value_crosses_markers}${new_title}
+                        rm ${r_value_crosses_markers}${f}
+                    else
+                        rm ${r_value_crosses_markers}${f}
+                    fi
+            done
         fi
-        
-        k=$((k+1))
-done
+    done
+    
+    k=0
+    
+       for h in ${heritability[*]}
+        do
+        if [ ${k} -eq 0 ]
+            then
+            k=1
+            for f in $(ls ${r_value_crosses_lines} | grep "tbv")
+                do 
+                    if [ $(echo ${f} | grep "h${h}" | wc -l ) -eq 1 ]
+                        then
+                        new_title=$(echo ${f} | sed "s|_h.*_r|_r|g")
+                        cp ${r_value_crosses_lines}${f} ${r_value_crosses_lines}${new_title}
+                        rm ${r_value_crosses_lines}${f}
+                    else
+                        rm ${r_value_crosses_lines}${f}
+                    fi
+            done
+        fi
+    done
+    
+   
+                        
+date +'%Y-%m-%d-%T'
 
+      

@@ -4,7 +4,12 @@ date +'%Y-%m-%d-%T'
 
 
 
+
 base=${1}
+
+
+
+type=${2}
 
 
 
@@ -12,19 +17,18 @@ source ${base}
 
 
 
-type=${2}
-r_log=${3}
-r_save=${4}
-simulation=${5}
+r_log=${r_log_value_crosses_gblup}${type}/
+r_save=${r_value_crosses_gblup}${type}/
+
+
 
 r_save2=${r_save}temp/
+rm -rf ${r_save}
 mkdir -p ${r_save2}
-
-typeshort=$(echo ${type} | sed "s/_/./g")
-
-
-
-
+mkdir -p ${r_log}
+typeshort=$(echo ${type} | sed "s/_/./g" )
+type2=$(echo ${type} |sed "s/_g.*$//g" )
+echo ${type}
 
 # goal
 # estimate GEBV from pheno + geno ; estimate markers effects ; predict GEBV from marker effects
@@ -52,43 +56,11 @@ cp ${r_blupf90}postGSf90 ${r_save2}
 cp ${r_blupf90}predf90 ${r_save2}
 
 
-if [ ${simulation} == "FALSE" ]
-    then
-        titre_lines=${r_prepare}lines.txt
-
-elif  [ ${simulation} == "TRUE" ]
-    then
-    
-        titre_lines=${r_value_crosses}lines_estimated.txt
-
-elif [ ${simulation} == "crossval" ]
-    then
-    
-    titre_lines=${r_save2}lines_for_blupf90_${type}.txt
-    head -n1 ${r_value_crosses}lines_estimated.txt > ${titre_lines}
-    cut -f2 -d" " ${r}crossval/ldak/lines_to_remove_${type}.txt > ${r_save2}lines_temp.txt 
-    grep -Fv -f ${r_save2}lines_temp.txt ${r_value_crosses}lines_estimated.txt | grep -e "pheno_simFALSE" >> ${titre_lines}
-    
-    
-    sed -i "s/^/LINE\t/" ${r_save2}lines_temp.txt 
-    sed -i "s/$/\tTRUE/" ${r_save2}lines_temp.txt 
-    sed -i "s/$/\tTRUE/" ${r_save2}lines_temp.txt 
-    sed -i "s/$/\tTRUE/" ${r_save2}lines_temp.txt 
-    sed -i "s/$/\tpheno_simFALSE/" ${r_save2}lines_temp.txt 
-    sed -i "s/$/\t0/" ${r_save2}lines_temp.txt 
-
-    
-    cat ${r_save2}lines_temp.txt  >> ${titre_lines}
-    
-    tail ${titre_lines}
-
-
-fi
     
 
 
-
-titre_markers=${r_prepare}markers.txt
+titre_lines=${r_value_crosses_lines}lines_pheno_${type2}.txt
+titre_markers=${r_prepare}markers_${population_ref}.txt
 titre_genotyping=${r_prepare}genotyping.txt
 titre_phenotyping_blupf90=p${typeshort}.txt
 titre_markers_blupf90=m${typeshort}.txt
@@ -108,11 +80,10 @@ v6=${titre_genotyping_blupf90}
 v7=${titre_weights_blupf90}
 v8=${titre_function_sort_genotyping_matrix}
 v9=${titre_function_subset_markers}
-v10=${population_ref}
-v11=${type}
+v10=${type}
 
 
-Rscript ${r_scripts}prepare_for_blupf90.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} ${v10} ${v11}
+Rscript ${r_scripts}prepare_for_blupf90.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} ${v10}
 
 
 
@@ -197,10 +168,9 @@ cp ${r_save2}snp_pred ${r_save}snp_pred_${type}.txt
 
 titre_snp_effects=${r_save}snp_sol_${type}.txt
 titre_gebv=${r_save}SNP_predictions_${type}.txt
-titre_markers_output=${r_save}markers_${type}.txt
-titre_lines_output=${r_save}lines_${type}.txt
-titre_lines=${r_prepare}lines.txt
-# subset=all
+titre_markers=${r_prepare}markers.txt
+titre_markers_output=${r_value_crosses_markers}markers_estimated_${type}.txt
+titre_lines_output=${r_value_crosses_lines}lines_gebv_${type}.txt
 
 
 v1=${titre_gebv}
@@ -212,6 +182,20 @@ v6=${titre_lines_output}
 v7=${type}
 
 Rscript ${r_scripts}after_blupf90.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7}
+
+
+
+
+
+populations=$(cut -f5 ${r_prepare}markers.txt | sort | uniq | grep -v "population")
+
+for p in ${populations[*]}
+    do
+    head -n1 ${titre_markers_output} > ${r_value_crosses_markers}markers_estimated_${type}_${p}.txt
+    grep ${p} ${titre_markers_output} >> ${r_value_crosses_markers}markers_estimated_${type}_${p}.txt
+done
+
+rm ${titre_markers_output}
 
 
 cd ${r_save}

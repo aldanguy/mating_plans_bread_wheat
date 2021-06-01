@@ -10,21 +10,18 @@ source ${base}
 
 titre_genotyping_matrice_parents=${r_prepare}genotyping.txt
 titre_markers=${r_prepare}markers.txt
-titre_lines_parents=${r_value_crosses}lines_estimated.txt
 titre_markers_output=${r_value_crosses}for_LDAK.map
 titre_genotyping_output=${r_value_crosses}for_LDAK.ped
-titre_phenotypes_output=${r_value_crosses}for_LDAK.txt
 
 
 v1=${titre_genotyping_matrice_parents}
 v2=${titre_markers}
-v3=${titre_lines_parents}
-v4=${titre_markers_output}
-v5=${titre_genotyping_output}
-v5=${titre_phenotypes_output}
+v3=${titre_markers_output}
+v4=${titre_genotyping_output}
 
 
-# Rscript ${r_scripts}pipeline_for_LDAK.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6}
+
+Rscript ${r_scripts}pipeline_for_LDAK.R ${v1} ${v2} ${v3} ${v4}
 
 
 
