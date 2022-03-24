@@ -1,14 +1,5 @@
 
 
-# Goal : simulate progeny genotypes
-# Input : genotypes of inbred parental lines and number of progenies per cross
-# Output : genotypes of progenies
-
-
-# To install MOBPS
-# install.packages("miraculix", configure.args="CXX_FLAGS=-march=native")
-
-
 
 Sys.time()
 cat("\n\nconvert_geno_to_haplo.R\n\n")
@@ -20,6 +11,7 @@ t1 <- Sys.time()
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(compiler))
+suppressPackageStartupMessages(library(readr))
 
 
 variables <- commandArgs(trailingOnly=TRUE)
@@ -35,39 +27,31 @@ cat("\n\n")
 
 
 titre_genotyping_input <- variables[1]
+titre_markers_input <- variables[2]
 titre_haplotypes_output <- variables[3]
-titre_best_crosses <- variables[2]
 
 
 cat("\n\n INPUT : genotyping \n\n")
 parental_genotypes <- fread(titre_genotyping_input)
-parental_genotypes %>% select(1:10) %>% slice(1:10)
-parental_genotypes %>% select(1:10) %>% slice((nrow(.)-10):nrow(.))
+parental_genotypes %>% select(1:10) %>% head()
+parental_genotypes %>% select(1:10) %>% tail()
 parental_genotypes %>% dim()
 
 
-cat("\n\n best crosses info \n\n")
-best_crosses <- fread(titre_best_crosses)
-head(best_crosses)
-tail(best_crosses)
-dim(best_crosses)
+cat("\n\n INPUT : markers \n\n")
+markers <- fread(titre_markers_input) %>% arrange(chr, dcum, marker)
+head(markers)
+tail(markers)
+dim(markers)
 
-
-liste_lines <- best_crosses %>% dplyr::select(P1,P2) %>%
-  unlist() %>%
-  as.vector() %>%
-  unique() %>%
-  sort()
 
 haplo_1 <- parental_genotypes %>% 
   dplyr::select(ID, starts_with("AX")) %>%
-  filter(ID %in% !!liste_lines) %>%
   arrange(ID) %>%
   mutate(haplo=paste0(ID,"_haplo1")) 
 
 haplo_2 <- parental_genotypes %>% 
   dplyr::select(ID, starts_with("AX")) %>%
-  filter(ID %in% !!liste_lines) %>%
   arrange(ID) %>%
   mutate(haplo=paste0(ID,"_haplo2")) %>%
   group_by(ID) %>%
@@ -83,11 +67,20 @@ haplotypes <- haplo_1  %>%
   rbind(.,haplo_2) %>%
   arrange(ID, haplo)  %>% 
   dplyr::select(ID, haplo, starts_with("AX")) %>%
-  as.data.frame()
+  as.data.frame() %>%
+  inner_join(parental_genotypes %>% dplyr::select(-starts_with("AX")), by="ID") %>%
+  arrange(ID, haplo) %>%
+  dplyr::select(ID, haplo, one_of("simulation", "qtls", "qtls_info", "heritability", "genomic", "population", "population_ID" ), one_of(markers$marker) )
 
 
 
-write.table(haplotypes, titre_haplotypes_output, col.names = T, row.names = F, dec=".", sep="\t", quote=F)
+
+cat("\n\n genotypes of parents \n\n")
+haplotypes %>% dplyr::select(1:15) %>% head()
+haplotypes %>% dplyr::select(1:15) %>% tail()
+dim(haplotypes)
+write_delim(haplotypes, titre_haplotypes_output, delim = "\t", na = "NA", append = F,  col_names = T, quote_escape = "none")
+
 
 
 

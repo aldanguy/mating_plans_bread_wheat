@@ -26,129 +26,113 @@ cat("\n\n")
 
 
 
-titre_variance_crosses <- variables[1]
-titre_lines <- variables[2]
-titre_selection_intensity <- variables[3]
-titre_function_calcul_index_variance_crosses <- variables[4]
-selection_treshold <- as.numeric(variables[5])
-selection_rate <- as.numeric(variables[6])
-titre_crosses <- variables[7]
+titre_variance_crosses_input <- variables[1]
+titre_lines_parents_input <- variables[2]
+titre_selection_intensity_input <- variables[3]
+titre_best_order_statistic_input <- variables[4]
+selection_treshold_PROBA <- as.numeric(variables[5])
+within_family_selection_rate_UC1 <- as.numeric(variables[6])
+within_family_selection_rate_UC2 <- as.numeric(variables[7])
+Dmax_EMBV <- as.numeric(variables[8])
+titre_function_calcul_index_variance_crosses <- variables[9]
+titre_crosses_output <- variables[10]
 
 
-# titre_variance_crosses <-  "/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/variance_crosses_marker_simFALSE_10cm_WE.txt"
-# titre_lines <-"/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/lines_filtered_estimated.txt"                 
-# titre_selection_intensity <- "/work2/genphyse/dynagen/adanguy/croisements/150221/prepare/selection_intensity.txt"   
-# titre_function_calcul_index_variance_crosses <-  "/work/adanguy/these/croisements/scripts/calcul_index_variance_crosses.R"              
-# selection_treshold <-  8.0307627                                                                       
-# selection_rate <- 0.07                                                                                
-# titre_crosses <-"/work2/genphyse/dynagen/adanguy/croisements/150221/value_crosses/crosses.txt"
+
+
+#  
+# titre_variance_crosses_input <-"/work2/genphyse/dynagen/adanguy/croisements/230821/value_crosses/variance_crosses/variance_crosses_simTRUE_300rand_h0.4_r5_unselected_ggblup_WE.txt"
+# titre_lines_parents_input <- "/work2/genphyse/dynagen/adanguy/croisements/230821/value_crosses/lines/lines_gebv_unselected_simTRUE_300rand_h0.4_r5_ggblup.txt"                    
+# titre_selection_intensity_input <- "/work2/genphyse/dynagen/adanguy/croisements/230821/prepare/selection_intensity.txt"                                                                 
+# titre_function_calcul_index_variance_crosses <- "/work/adanguy/these/croisements/scripts/03_03_01_01_02_calcul_index_variance_crosses.R"                                                             
+# selection_treshold <- 9.1623611                                                                                                                                    
+# selection_rate <- 0.07                                                                                                                                              
+# titre_crosses_output <- "/work2/genphyse/dynagen/adanguy/croisements/230821/value_crosses/crosses/crosses_simTRUE_300rand_h0.4_r5_unselected_ggblup_WE.txt"                  
+#   type <-  "simTRUE_300rand_h0.4_r5"                                                                                                                            
+#   population_variance <- "WE"                                                                                                                                                 
+#   selected <-  "unselected"                                                                                                                                         
+#   g <-  "gblup"
 
 
 
 cat("\n\n INPUT : variance crosses \n\n")
-variance_crosses <- fread(titre_variance_crosses)
+variance_crosses <- fread(titre_variance_crosses_input) 
 head(variance_crosses)
+tail(variance_crosses)
 dim(variance_crosses)
 
-
-cat("\n\n INPUT : info lines \n\n")
-lines <- fread(titre_lines)
+cat("\n\n INPUT : lines info \n\n")
+lines <- fread(titre_lines_parents_input)
 head(lines)
+tail(lines)
 dim(lines)
 
+
+
+
 cat("\n\n INPUT : selection intensity table \n\n")
-selection_intensity <- fread(titre_selection_intensity)
+selection_intensity <- fread(titre_selection_intensity_input)
 head(selection_intensity)
+tail(selection_intensity)
 dim(selection_intensity)
+
+cat("\n\n INPUT : best order statistic input \n\n")
+best_order_stat <- fread(titre_best_order_statistic_input)
+head(best_order_stat)
+tail(best_order_stat)
+dim(best_order_stat)
 
 source(titre_function_calcul_index_variance_crosses)
 
 
-extraction <- function(string, character_split, number){
-  
-  out <- as.vector(unlist(strsplit(string, split=character_split)))
-  
-  if (number > length(out)){
-    
-    out <- NA
-  } else {
-    
-    out <- out[number]
-  }
-  
-  return(out)
-  
-}
-
-selection_intensity2=selection_intensity %>%
-  filter(qij==!!selection_rate) %>%
+selection_intensity_UC1=selection_intensity %>%
+  filter(qij==!!within_family_selection_rate_UC1) %>%
   dplyr::select(int_qij) %>% 
   unlist() %>% as.vector()
 
+selection_intensity_UC2=selection_intensity %>%
+  filter(qij==!!within_family_selection_rate_UC2) %>%
+  dplyr::select(int_qij) %>% 
+  unlist() %>% as.vector()
 
-type=unique(variance_crosses$type)
+selection_intensity_EMBV=best_order_stat %>%
+  filter(dij==!!Dmax_EMBV) %>%
+  dplyr::select(int_best_dij) %>% 
+  unlist() %>% as.vector()
 
-
-if (length(grep("h", type))==0 & length(grep("TRUE", type)) > 0){
-  
-  sim=extraction(type, "_", 2)
-  subset=extraction(type, "_", 3)
-  r=extraction(type, "_", 4)
-  type2=paste0("tbv_",sim,"_",subset,"_",r)
-  
-  
-} else if (length(grep("h", type))==0 & length(grep("TRUE", type)) == 0){
-  
-  sim=extraction(type, "_", 2)
-  subset=extraction(type, "_", 3)
-  type2=paste0("gebv_",sim,"_",subset)
-  
-  
-} else {
-  
-  sim=extraction(type, "_", 2)
-  subset=extraction(type, "_", 3)
-  h=extraction(type, "_", 4)
-  r=extraction(type, "_", 5)
-  type2=paste0("tbv_",sim,"_",subset,"_",h,"_",r)
-  
-  
-}
-
-lines2 <- lines %>% filter(used_as_parent==T & generation==0 & type==!!type2) %>% arrange(ID) 
-nind <- nrow(lines2)
+lines2 <- lines  %>% arrange(ID) %>% dplyr::select(ID, value)
 
 
-variance_crosses2 <- variance_crosses %>% arrange(P1, P2) %>%
-  group_by(P1, P2, type) %>%
-  summarise(sd=sqrt(sum(sd))) %>%
-  ungroup()
-
-lines_to_keep <- calcul1(nind)
-
-
-# mean of progeny GEBV
-u <- matrix(outer(lines2[,"value"], lines2[,"value"], "+")/2, ncol=1)
-u <- u[lines_to_keep]
-rm(lines, lines2, lines_to_keep)
-
-
-variance_crosses2 <- variance_crosses2 %>% mutate(u=u) %>%
-  arrange(P1, P2)
+crosses <- variance_crosses  %>%
+  group_by(P1, P2,  genetic_map, simulation, qtls, qtls_info, heritability, genomic, population, progeny, population_ID) %>%
+  summarise(sd=sqrt(sum(variance)))%>%
+  ungroup()%>%
+  right_join(lines2, by=c("P1"="ID")) %>%
+  inner_join(lines2, by=c("P2"="ID"))%>%
+  rowwise() %>%
+  mutate(PM=(value.x+value.y)/2) %>%
+  mutate(PROBA=log10(pnorm(selection_treshold_PROBA, PM, sd))) %>%
+  mutate(UC1=PM + selection_intensity_UC1*sd) %>%
+  mutate(UC2=PM + selection_intensity_UC2*sd) %>% 
+  mutate(EMBV=PM + selection_intensity_EMBV*sd) %>%
+  arrange(P1, P2) %>%
+  as.data.frame() %>%
+  mutate(CONSTRAINTS="NO_CONSTRAINTS") %>%
+  dplyr::select(P1, P2, genetic_map, simulation, qtls, qtls_info, heritability, genomic, population, progeny, population_ID, CONSTRAINTS, sd, PM, UC1, UC2, PROBA, EMBV)
 
 
 
 
-rm(variance_crosses, u)
 
 
 
 
 
 cat("\n\nOUTPUT : variance of crosses and other performances \n\n")
-head(variance_crosses2)
-dim(variance_crosses2)
-write_delim(variance_crosses2, titre_crosses, col_names = T, delim="\t", append = F, na="NA", quote_escape="none")
+head(crosses)
+tail(crosses)
+dim(crosses)
+write_delim(crosses, titre_crosses_output, col_names = T, delim="\t", append = F, na="NA", quote_escape="none")
 
 
 

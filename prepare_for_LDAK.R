@@ -3,7 +3,7 @@
 
 
 Sys.time()
-cat("\n\npreparation_donnes_PLINK.R\n\n")
+cat("\n\npprepare_for_LDAK.R\n\n")
 rm(list = ls())
 graphics.off()
 set.seed(1)
@@ -21,31 +21,37 @@ cat("\n\nVariables : \n")
 print(variables)
 cat("\n\n")
 
-titre_genotyping_matrice_parents <- variables[1]
-titre_markers <- variables[2]
+titre_genotypes_parents_input <- variables[1]
+titre_markers_input <- variables[2]
 titre_markers_output <- variables[3]
 titre_genotyping_output <- variables[4]
 
 
-# titre_genotyping_matrice_parents <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/genotyping.txt"
-# titre_markers <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/markers.txt"
-# titre_lines_parents <- "/home/adanguydesd/Documents/These_Alice/croisements/temp/lines_estimated.txt"
-# titre_markers_output <- "/work2/genphyse/dynagen/adanguy/croisements/050321/PLINK_markers.map"
-# titre_genotyping_output <- "/work2/genphyse/dynagen/adanguy/croisements/050321/PLINK_markers.ped"
+# 
+# titre_genotypes_parents_input <-  "/work2/genphyse/dynagen/adanguy/croisements/110222/real_data_GBLUP/parents/genotypes_real_data_GBLUP.txt"      
+# titre_markers_input <-  "/work2/genphyse/dynagen/adanguy/croisements/110222/real_data_GBLUP/gblup/markers_estimated_real_data_GBLUP.txt"
+# titre_markers_output <- "/work2/genphyse/dynagen/adanguy/croisements/110222/real_data_GBLUP/LDAK/LDAK_real_data_GBLUP.map"              
+# titre_genotyping_output <-  "/work2/genphyse/dynagen/adanguy/croisements/110222/real_data_GBLUP/LDAK/LDAK_real_data_GBLUP.ped"              
+# 
+# 
+# 
+
 
 
 cat("\n\n INPUT markers info \n\n")
-m <- fread(titre_markers) 
+m <- fread(titre_markers_input) 
 head(m)
 tail(m)
 dim(m)
 
 
 cat("\n\n INPUT genotyping \n\n")
-g <- fread(titre_genotyping_matrice_parents) 
-g %>% select(1:10) %>% slice(1:10)
-g %>% select(1:10) %>% slice((nrow(.)-10):nrow(.))
+g <- fread(titre_genotypes_parents_input) 
+g %>% dplyr::select(1:10) %>% head()
+g %>% dplyr::select(1:10) %>% tail()
 g %>% dim()
+
+
 
 
 m <-m %>% 
@@ -53,37 +59,88 @@ m <-m %>%
   dplyr::select(chr, marker, dcum, pos) %>%
   arrange(chr, dcum)
 
+  
+
+
 g <- g %>%
   arrange(ID) %>%
   as.data.frame()
 
 
 
-for (i in 2:ncol(g)) {
+####
+# m <- m %>% slice(sort(sample(1:nrow(m), size=1000, replace=F))) %>%
+#   arrange(chr, pos)
+# 
+# 
+# g <- g %>% dplyr::select(one_of(c("ID", m$marker)))
+####
+# 
+# for (i in 2:ncol(g)) {
+#   
+#   print(i)
+#   
+#   geno <- g %>% dplyr::select(i) %>% unlist() %>% as.vector()
+#   
+#   temp1 <- ifelse(geno==0,"D", ifelse(geno==1,"D", ifelse(geno==2,"A", NA)))
+#   temp2 <- ifelse(geno==0,"D", ifelse(geno==1,"A", ifelse(geno==2,"A", NA)))
+#   
+#   if (i==2){
+#     
+#     temp <- cbind(temp1, temp2)
+#     print(head(temp))
+#     
+#     
+#     
+#   } else {
+#     
+#     
+#     temp <- cbind(temp, temp1, temp2)
+#     
+#   }
+#   
+#   
+#   
+# }
+
+
+maf <- apply(g %>% dplyr::select(starts_with("AX")), 2, function(x) 2*length(which(x==2)) + length(which(x==1)))
+maf <- maf/(2*nrow(g))
+maf <- sapply(maf, function(x) min(1-x, x))
+head(maf)
+min(maf)
+m_to_remove <- colnames(g)[-1][c(which(maf ==0))]
+
+g <- g %>% dplyr::select(-one_of(m_to_remove))
+m <- m %>% filter(!marker %in% m_to_remove)
+
+
+i=1
+for (i in 1:nrow(g)) {
   
-  geno <- g %>% dplyr::select(i) %>% unlist() %>% as.vector()
+
+  geno <- g %>% dplyr::select(starts_with("AX")) %>% slice(i) %>% unlist() %>% as.vector()
   
   temp1 <- ifelse(geno==0,"D", ifelse(geno==1,"D", ifelse(geno==2,"A", NA)))
   temp2 <- ifelse(geno==0,"D", ifelse(geno==1,"A", ifelse(geno==2,"A", NA)))
+
+    test <- t(as.vector(unlist(as.data.frame(rbind(temp1, temp2)))))
+
   
-  if (i==2){
-    
-    temp <- cbind(temp1, temp2)
-    print(head(temp))
+    write.table(test, titre_genotyping_output, col.names = F, row.names = F, dec=".", sep="\t", quote=F, append=(i>1))
+
     
     
+
     
-  } else {
-    
-    
-    temp <- cbind(temp, temp1, temp2)
-    
+
   }
   
   
-  
-}
-
+temp <- fread(titre_genotyping_output, header = F)
+temp %>% dplyr::select(1:10) %>% head()
+temp %>% dplyr::select(1:10) %>% tail()
+dim(temp)
 
 colnames(temp) <- paste0("V", 1:ncol(temp))
 

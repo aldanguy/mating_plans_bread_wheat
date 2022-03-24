@@ -8,6 +8,8 @@ WEIGHT(S)
 
 RESIDUAL_VARIANCE
 10 #residual_variance
+EFFECT
+3 cross alpha
 EFFECT           
 1 cross alpha
 RANDOM           
@@ -22,8 +24,9 @@ OPTION saveA22Inverse
 OPTION map_file mapfilepath
 OPTION EM-REML 5000
 OPTION alpha_size 30
-OPTION remove_all_missing
-OPTION max_field_readline 200
 OPTION AlphaBeta 0.999999 0.000001
 OPTION tunedG 0
 OPTION weightedG weightsfilepath
+OPTION missing -999
+OPTION no_quality_control
+
