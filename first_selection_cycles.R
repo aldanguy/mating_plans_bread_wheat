@@ -11,7 +11,6 @@ suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(compiler))
 suppressPackageStartupMessages(library(readr))
 suppressPackageStartupMessages(library(RandomFieldsUtils))
-suppressPackageStartupMessages(library(miraculix))
 suppressPackageStartupMessages(library(MoBPS))
 suppressPackageStartupMessages(library(synbreed))
 

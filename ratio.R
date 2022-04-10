@@ -27,6 +27,11 @@ titre_output <- variables[2]
 info <- variables[3]
 titre_correlations_output <- variables[4]
 
+# titre_criteria <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/criteria/criteria_sTRUE_iTRUE_q300rand_hNA_gNA_punselected_n9_mWE_CONSTRAINTS.txt"
+# titre_output <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/accuracy/ratio_iTRUE_punselected_n9.txt"                                          
+# info <-  "population_predict_population"                                                                                                               
+# titre_correlations_output <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/accuracy/correlations_iTRUE_punselected_n9.txt"                                   
+# 
 
 #titre_criteria_estimated <-  "/work/adanguy/these/croisements/250222/results/criteria_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS.txt" 
 
@@ -38,11 +43,7 @@ tail(criteria)
 dim(criteria)
 
 
-cat("\n\n INPUT : mating plan \n\n ")
-mating <- fread(titre_mating_plan_input)
-head(mating)
-tail(mating)
-dim(mating)
+
 
 ratio <- criteria  %>%
   group_by(simulation, genetic_map, population, population_ID, CONSTRAINTS, qtls, qtls_info, heritability, genomic, progeny) %>%
@@ -61,8 +62,9 @@ correlations <- criteria %>%
   dplyr::select(PM, UC1, sd, UC2, EMBV, OHV, PROBA) %>%
   rowwise() %>%
   mutate(PROBA=1 - 10^(PROBA)) %>%
+  mutate(PROBA =ifelse(PROBA > 1e-4, PROBA, NA)) %>%
   ungroup() %>%
-   cor() %>%
+   cor(use="pairwise.complete.obs") %>%
   reshape2::melt() %>%
   rename(criterion1=Var1, criterion2=Var2, correlation=value) %>%
   inner_join(order_criterion, by=c("criterion1"="criterion"))%>%

@@ -63,6 +63,8 @@ var_sd_f <- ratio %>%
   as.data.frame()
 
 
+
+
 var_PM_f <- ratio %>% 
   group_by(population, qtls_info, info) %>%
   summarise(value=mean(var_PM), 
@@ -104,12 +106,18 @@ cor_PM_f <- accuracy %>%
   mutate(metric="cor_PM")%>%
   as.data.frame()
 
+bias_sd2_f <- accuracy %>% 
+  group_by(population, info) %>%
+  summarise(value=mean(bias_sd2), 
+            sd=sd(bias_sd2))%>%
+  mutate(metric="bias_sd2")%>%
+  as.data.frame()
 
 
 
 
 
-final2 <- rbind(ratio_var_sd_esti_f, ratio_var_PM_esti_f, cor_sd_f, cor_PM_f) %>%
+final2 <- rbind(ratio_var_sd_esti_f, ratio_var_PM_esti_f, cor_sd_f, cor_PM_f, bias_sd2_f) %>%
   mutate(training=case_when(info=="population_predict_population" & population=="unselected" ~ "unselected",
                           info=="population_predict_population" & population=="selected" ~ "selected",
                           info=="cross_validation" & population=="unselected" ~ "selected",
@@ -123,8 +131,8 @@ final2 <- rbind(ratio_var_sd_esti_f, ratio_var_PM_esti_f, cor_sd_f, cor_PM_f) %>
 
 correlations2 <- correlations %>%
   group_by(population, qtls_info, criterion1, criterion2) %>%
-  summarise(value=mean(correlation), 
-            sd=sd(correlation)) %>%
+  summarise(value=round(100*mean(correlation)), 
+            sd=round(100*sd(correlation))) %>%
   mutate(metric="correlation")%>%
   as.data.frame()
 

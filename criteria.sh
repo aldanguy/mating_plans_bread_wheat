@@ -147,7 +147,7 @@ for chr in ${chromosomes[*]}
     echo "${job_out} =" >> ${file_jobs}
     echo "${job}" >> ${file_jobs}
     
-    while (( $(squeue -u adanguy  | wc -l) >=  ${nb_jobs_allowed})) 
+    while (( $(squeue -u jelsen  | wc -l) >=  ${nb_jobs_allowed})) 
     do    
     sleep 1m
     done
@@ -155,12 +155,113 @@ for chr in ${chromosomes[*]}
 done
 
 sed -i '/^$/d' ${file_jobs}
-while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 1 )) 
+while (( $(squeue -u jelsen | grep -f ${file_jobs} | wc -l) >= 1 )) 
 do    
     sleep 1s
     sed -i '/^$/d' ${file_jobs}
 done
 
+
+
+cd ${r_criteria_temp}
+nb_files=$( cd ${r_criteria_temp} | ls | grep "variance_crosses_${ID}_*" | wc -l)
+
+
+while (( ${nb_files} < 21 ))
+
+do 
+
+
+for chr in ${chromosomes[*]}
+    do
+
+    if [ ! -f "${titre_variance_crosses_chr}${chr}.txt" ] 
+    then
+    
+    echo "${chr} retry"
+    
+    
+    
+
+    r_big_files=${r_criteria_temp}
+    titre_variance_crosses_chr_output=${titre_variance_crosses_chr}${chr}.txt
+
+        
+
+    
+
+
+   job_out=${r_log}variance_crosses_${ID}_${chr}.out
+    
+    
+    job_name=${chr}
+    
+
+
+   
+    # variables
+    v1=${base}
+    v2=${titre_markers_used}
+    v3=${titre_genotypes_used}
+    v4=${nbcores}
+    v5=${chr}
+    v6=${progeny}
+    v7=${r_big_files}
+    v8=${titre_variance_crosses_chr_output}
+    v9=${titre_genetic_values_used}
+    v10=${titre_genetic_map_used}
+
+
+
+
+    echo ${chr}
+    
+    
+    job_out=${r_log}variance_crosses_${ID}_${chr}_TRUE.out
+    
+    
+    job_name=${chr}
+    
+
+	    
+    job=$(sbatch -o ${job_out} -J ${job_name} -c ${nbcores} --mem=3G --time=00:30:00 --parsable ${r_scripts}variance_crosses_chr.sh ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} ${v10} ${v11})
+
+
+
+    echo "${job_out} =" >> ${file_jobs}
+    echo "${job}" >> ${file_jobs}
+    sed -i '/^$/d' ${file_jobs}
+
+    
+
+
+    
+
+    while (( $(squeue -u jelsen | grep ${job} | wc -l) >= 1 )) 
+      do    
+    sleep 1m
+    echo "wait1"
+    done
+    
+      while (( $(squeue -u jelsen  | wc -l) >=  ${nb_jobs_allowed})) 
+    do    
+    sleep 1m
+    echo "wait2"
+    done
+    
+
+
+fi
+
+done
+
+
+cd ${r_criteria_temp}
+nb_files=$( cd ${r_criteria_temp} | ls | grep "variance_crosses_${ID}_*" | wc -l)
+echo ${nb_files}
+
+done
+    
 
 
 k=0

@@ -65,11 +65,22 @@ v6=${titre_similarity_output}
 Rscript ${r_scripts}similarity_mating_plans.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6}
 
 
-done
+
+
 
 done
 
+done
 
+
+titre_criteria=${r_big_files}article/criteria/criteria_${ID}.txt
+titre_output=${r_big_files}article/similarity_mating_plans/correlations_${ID}.txt
+
+
+v1=${titre_criteria}
+v2=${titre_output}
+
+Rscript ${r_scripts}correlations.R ${v1} ${v2}
 
 
 date +'%Y-%m-%d-%T'

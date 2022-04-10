@@ -233,6 +233,8 @@ then
         Rscript ${r_scripts}first_selection_cycles.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} 
         
      echo "STEP 1.3 : convert genotypes to haplotypes"
+     
+     
         
             
 
@@ -313,7 +315,6 @@ then
         Rscript ${r_scripts}convert_LDAK_matrix.R ${v1} ${v2} ${v3} 
 
         cd ${r}
-
 
 
 

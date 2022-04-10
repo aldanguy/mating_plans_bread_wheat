@@ -92,7 +92,7 @@ titre_diversity_input=${r_big_files}article/progeny/diversity_temp5.txt
 titre_selection_rate_output=${r_results}selection_rate.txt
 titre_diversity_output=${r_results}diversity.txt
 titre_gain_output=${r_results}gain.txt
-
+titre_impact_constraints_output=${r_results}impact_constraints.txt
 
 
 v1=${titre_sel_rate_input}
@@ -101,8 +101,9 @@ v3=${titre_diversity_input}
 v4=${titre_selection_rate_output}
 v5=${titre_diversity_output}
 v6=${titre_gain_output}
+v7=${titre_impact_constraints_output}
 
- Rscript ${r_scripts}analyse_gain3.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6}
+ Rscript ${r_scripts}analyse_gain3.R ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7}
  
  
 rm ${r_big_files}article/progeny/selection_rate_temp5.txt

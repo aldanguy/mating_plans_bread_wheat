@@ -10,7 +10,6 @@ set.seed(1)
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(compiler))
-suppressPackageStartupMessages(library(igraph))
 suppressPackageStartupMessages(library(ggpubr))
 
 

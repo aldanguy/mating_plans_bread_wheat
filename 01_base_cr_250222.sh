@@ -6,15 +6,13 @@ RANDOM=1
 # General
 
 
+# Paths to change by user
+
+
 r_amont=/work/adanguy/these/croisements/amont/
 
 r_scripts=/work/adanguy/these/croisements/scripts/
 
-
-
-
-
-# Main repositories
 
 date=250222
 
@@ -26,6 +24,21 @@ mkdir -p ${r0}
 
 r_big_files=/work2/genphyse/dynagen/adanguy/croisements/${date}/
 mkdir -p ${r_big_files}
+
+
+r_blupf90=/work/adanguy/blupf90/ # should already exist, with renumf90, postGSf0, predf90 and airemlf90 activated
+
+
+
+
+
+
+
+
+
+
+
+# Main repositories
 
 
 r0_log=${r0}log/
@@ -76,15 +89,7 @@ mkdir -p ${r_results}
 # BLUF90
 
 
-r_blupf90=/work/adanguy/blupf90/ # should already exist, with blupf90, renumf90, postGSf0, predf90 and airemlf90 activated
-
-
-
-
-r_genetic_algorithm_0=/work/adanguy/GA.zip
-
-
-
+r_genetic_algorithm_0=${r_scripts}GA.zip
 
 
 

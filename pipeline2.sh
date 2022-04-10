@@ -211,7 +211,7 @@ echo "${job_parents}" >> ${file_jobs}
 
 
 
-while (( $(squeue -u adanguy  | wc -l) >=  ${nb_jobs_allowed})) 
+while (( $(squeue -u jelsen  | wc -l) >=  ${nb_jobs_allowed})) 
 do    
 sleep 1m
 done
@@ -220,12 +220,11 @@ done
 
 
 sed -i '/^$/d' ${file_jobs}
-while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 1 )) 
+while (( $(squeue -u jelsen | grep -f ${file_jobs} | wc -l) >= 1 )) 
 do    
     sleep 1m
     sed -i '/^$/d' ${file_jobs}
 done
-
 
 
 v1=${base}
@@ -243,6 +242,9 @@ v12=${titre_markers_used}
 v13=${titre_criteria_base}
 v14=${genetic_map}
 
+
+
+file_jobs=${r0_log_jobs}jobs_${ID}.txt
 
 
 
@@ -268,7 +270,7 @@ echo "${job_criteria}" >> ${file_jobs}
 
 
 sed -i '/^$/d' ${file_jobs}
-while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 1 )) 
+while (( $(squeue -u jelsen | grep -f ${file_jobs} | wc -l) >= 1 )) 
 do    
     sleep 1m
     sed -i '/^$/d' ${file_jobs}
@@ -298,7 +300,6 @@ v12=${set_starting_pop}
 
 
 
-
 job_out=${r_log}optimization_${ID}_${criterion}.out
 
 
@@ -306,16 +307,16 @@ job_name=opti${criterion}${ID}
 
 
 
-job_opti=$(sbatch -o ${job_out} -J ${job_name} --dependency=afterok:${job_criteria} --mem=3G --parsable ${r_scripts}optimization.sh ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} ${v10} ${v11} ${v12} ${v13} ${v14} ${v15} ${v16} ${v17} ${v18} ${v19} ${v20} ${v21})
+# job_opti=$(sbatch -o ${job_out} -J ${job_name} --dependency=afterok:${job_criteria} --mem=3G --parsable ${r_scripts}optimization.sh ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} ${v10} ${v11} ${v12} ${v13} ${v14} ${v15} ${v16} ${v17} ${v18} ${v19} ${v20} ${v21})
 
 
 
-echo "${job_out} =" >> ${file_jobs}
-echo "${job_opti}" >> ${file_jobs}
+# echo "${job_out} =" >> ${file_jobs}
+# echo "${job_opti}" >> ${file_jobs}
 sed -i '/^$/d' ${file_jobs}
 
 
-    while (( $(squeue -u adanguy  | wc -l) >=  ${nb_jobs_allowed})) 
+    while (( $(squeue -u jelsen  | wc -l) >=  ${nb_jobs_allowed})) 
     do    
     sleep 1m
     done
@@ -329,28 +330,29 @@ then
 
 
 sed -i '/^$/d' ${file_jobs}
-while (( $(squeue -u adanguy | grep -f ${file_jobs} | wc -l) >= 1 )) 
+while (( $(squeue -u jelsen | grep -f ${file_jobs} | wc -l) >= 1 )) 
 do    
    sleep 1m
 done
 
 
 
-
+cd ${r_big_files}article/progeny/ 
 
 for criterion in ${criteria[*]}
 do
 
 
-# job_opti=1
-# nb_files=$(cd ${r_big_files}article/progeny/ | ls | grep ${ID} | grep ${criterion} | grep -v "temp" | grep "TBV" | wc -l)
-# nb_files_temp2=$(cd ${r_big_files}article/progeny/ | ls | grep ${ID} | grep ${criterion} | grep "temp2"  | wc -l)
+job_opti=1
+nb_files=$(cd ${r_big_files}article/progeny/ | ls | grep ${ID} | grep ${criterion} | grep -v "temp" | grep "TBV" | wc -l)
+nb_files_temp2=$(cd ${r_big_files}article/progeny/ | ls | grep ${ID} | grep ${criterion} | grep "temp2"  | wc -l)
 
 #if ( [ ${nb_files} -lt 80 ] || [ ${nb_files_temp2} -lt 3 ] ) && [ -f "${titre_mating_plan_base}${criterion}.txt" ]
 #then
-#echo "lancer progeny1"
-
-
+echo "lancer progeny1"
+echo ${criterion}
+echo ${nb_files}
+echo ${nb_files_temp2}
 
 
 v1=${base}
@@ -372,13 +374,13 @@ job_out=${r_log}progeny1_${ID}_${criterion}.out
 job_name=progeny${ID}
 
 
-job_progeny=$(sbatch -o ${job_out} -J ${job_name} --dependency=afterok:${job_opti} --parsable ${r_scripts}progeny1.sh ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} ${v10} ${v11} ${v12} ${v13} ${v14} ${v15} ${v16} ${v17} ${v18} ${v19} ${v20} ${v21})
+#job_progeny=$(sbatch -o ${job_out} -J ${job_name} --dependency=afterok:${job_opti} --parsable ${r_scripts}progeny1.sh ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9} ${v10} ${v11} ${v12} ${v13} ${v14} ${v15} ${v16} ${v17} ${v18} ${v19} ${v20} ${v21})
 
-echo "${job_out} =" >> ${file_jobs}
-echo "${job_progeny}" >> ${file_jobs}
+#echo "${job_out} =" >> ${file_jobs}
+#echo "${job_progeny}" >> ${file_jobs}
 sed -i '/^$/d' ${file_jobs}
 
-    while (( $(squeue -u adanguy  | wc -l) >=  ${nb_jobs_allowed})) 
+    while (( $(squeue -u jelsen  | wc -l) >=  ${nb_jobs_allowed})) 
     do    
     sleep 1m
     done
@@ -388,11 +390,18 @@ sed -i '/^$/d' ${file_jobs}
 done
 
 
+sed -i '/^$/d' ${file_jobs}
+while (( $(squeue -u jelsen | grep -f ${file_jobs} | wc -l) >= 1 )) 
+do    
+    sleep 1m
+
+done
+
 
 
 
 k=0
-for f in ${titre_TBV_progeny_base}*_gain_temp2.txt
+for f in ${titre_TBV_progeny_base}*gain_temp2.txt
 do
 
 echo ${f}
@@ -416,7 +425,7 @@ done
 
 
 k=0
-for f in ${titre_TBV_progeny_base}*_diversity_temp2.txt
+for f in ${titre_TBV_progeny_base}*diversity_temp2.txt
 do
 
 echo ${f}
@@ -440,7 +449,7 @@ done
 
 
 k=0
-for f in ${titre_TBV_progeny_base}*_selection_rate_temp2.txt
+for f in ${titre_TBV_progeny_base}*selection_rate_temp2.txt
 do
 
 echo ${f}

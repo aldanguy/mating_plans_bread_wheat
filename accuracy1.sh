@@ -16,11 +16,9 @@ export OMP_STACKSIZE=64M
 
 base=${1}
 
-source ${base}
 
 
 
-base=/work/adanguy/these/croisements/scripts/01_base_cr_250222.sh
 
 source ${base}
 

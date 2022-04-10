@@ -16,7 +16,6 @@ titre_TBV_progeny_base=${7}
 titre_markers_used=${8}
 titre_haplotypes_used=${9}
 
-titre_TBV_progeny_base=/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS_
 
 echo ${base}
 echo ${r_ref}
@@ -52,7 +51,7 @@ for num_simulation in $(seq 1 ${nb_mendelian_simulations})
 do
 
 
-    echo ${num_simulation}
+    # echo ${num_simulation}
 
 
     job_out=${r_log_progeny}progeny2_${ID}_${criterion}_${num_simulation}.out
@@ -77,10 +76,10 @@ do
 
 
         
-    job=$(sbatch -o ${job_out} -J ${job_name} --time=00:30:00 --mem=20G --parsable ${r_scripts}progeny2.sh ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9})
+    # job=$(sbatch -o ${job_out} -J ${job_name} --time=00:30:00 --mem=20G --parsable ${r_scripts}progeny2.sh ${v1} ${v2} ${v3} ${v4} ${v5} ${v6} ${v7} ${v8} ${v9})
 
-    echo "${job_out} =" >> ${file_jobs}
-    echo "${job}" >> ${file_jobs}
+    # echo "${job_out} =" >> ${file_jobs}
+    # echo "${job}" >> ${file_jobs}
     
 
     while (( $(squeue -u adanguy  | wc -l) >=  ${nb_jobs_allowed})) 
@@ -290,9 +289,9 @@ v6=${titre_gain_output}
  
  
 
-rm ${titre_TBV_progeny_base}selection_rate_temp1.txt
-rm ${titre_TBV_progeny_base}gain_temp1.txt
-rm ${titre_TBV_progeny_base}diversity_temp1.txt
+rm ${titre_TBV_progeny_base}${criterion}_selection_rate_temp1.txt
+rm ${titre_TBV_progeny_base}${criterion}_gain_temp1.txt
+rm ${titre_TBV_progeny_base}${criterion}_diversity_temp1.txt
  
 
    

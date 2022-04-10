@@ -34,6 +34,27 @@ titre_gain_output<- variables[9]
 
 
 
+# titre_sel_rate_input <-"/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n7_mWE_NO_CONSTRAINTS_selection_rate_temp3.txt"
+# titre_gain_input <-  "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n7_mWE_NO_CONSTRAINTS_gain_temp3.txt"          
+# titre_diversity_input <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n7_mWE_NO_CONSTRAINTS_diversity_temp3.txt"     
+# titre_genotypes_parents_input <-  "/work/adanguy/these/croisements/250222/results/genotypes_real_data.txt"                                                                                                         
+# titre_markers_input <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/markers/markers_QTLs_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n7_mWE_NO_CONSTRAINTS.txt"                    
+# titre_parents_input <-"/work2/genphyse/dynagen/adanguy/croisements/250222/article/parents/TBV_first_generation_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n7_mWE_NO_CONSTRAINTS.txt"  
+# 
+
+# titre_sel_rate_input <-  "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS_selection_rate_temp3.txt"
+# titre_gain_input <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS_gain_temp3.txt"          
+# titre_diversity_input <-  "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS_diversity_temp3.txt"     
+# titre_genotypes_parents_input <- "/work/adanguy/these/croisements/250222/results/genotypes_real_data.txt"                                                                                                      
+# titre_markers_input <-"/work2/genphyse/dynagen/adanguy/croisements/250222/article/markers/markers_QTLs_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS.txt"                    
+# titre_parents_input <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/parents/TBV_first_generation_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS.txt"            
+# titre_selection_rate_output <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS_selection_rate_temp4.txt"
+# titre_diversity_output<-  "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS_diversity_temp4.txt"     
+# titre_gain_output<- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS_gain_temp4.txt"          
+
+
+
+
 # titre_sel_rate_input <-  "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n20_mWE_CONSTRAINTS_selection_rate_temp3.txt"
 # titre_gain_input <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n20_mWE_CONSTRAINTS_gain_temp3.txt"          
 # titre_diversity_input <- "/work2/genphyse/dynagen/adanguy/croisements/250222/article/progeny/TBV_progeny_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n20_mWE_CONSTRAINTS_diversity_temp3.txt"     
@@ -118,7 +139,7 @@ sel1 <- sel %>%
   mutate(value_ref=ifelse(criterion=="PM", value, NA)) %>%
   mutate(value_ref=max(value_ref, na.rm=T)) %>%
   rowwise() %>%
-  mutate(value=((value-value_ref)/(value_ref - gain_parents))) %>%
+  mutate(value=((value-value_ref)/(value_ref))) %>%
   as.data.frame() %>%
   dplyr::select(population, criterion, qtls_info, CONSTRAINTS, selection_rate, population_ID, value)
   
@@ -156,7 +177,15 @@ gain2 <- gain %>%
   mutate(metric="sd")
 
 
-gain1 <- rbind(gain1, gain2)
+gain3 <- gain %>%
+  group_by(population, qtls_info, CONSTRAINTS, selected_progeny, population_ID) %>%
+  rowwise() %>%
+  mutate(value=((value-gain_parents)/sd_parents)) %>%
+  as.data.frame()%>%
+  dplyr::select(population, criterion, qtls_info, CONSTRAINTS, selected_progeny, population_ID, value) %>%
+  mutate(metric="sd_raw")
+
+gain1 <- rbind(gain1, gain2, gain3)
 
 # 
 # diversity1 <- diversity %>%
@@ -173,9 +202,11 @@ diversity1 <- diversity %>%
   mutate(genic_div_ref=ifelse(criterion=="PM", genic_div, NA)) %>%
   mutate(genic_div_ref=max(genic_div_ref, na.rm=T)) %>%
   rowwise() %>%
+  mutate(genic_div_raw=genic_div/genic_div_parents) %>%
   mutate(genic_div=(genic_div-genic_div_ref)/genic_div_ref) %>%
   as.data.frame()%>%
-  dplyr::select(population, criterion, qtls_info, CONSTRAINTS, selected_progeny, population_ID, genic_div, nparents)
+  dplyr::select(population, criterion, qtls_info, CONSTRAINTS, selected_progeny, population_ID, genic_div, genic_div_raw, nparents)
+
 
 
 cat("\n\n OUPUT : selection_rate \n\n")

@@ -60,7 +60,7 @@ s2 <- s %>%
   mutate(similarity_PM=max(similarity_PM, na.rm = T)) %>%
   mutate(value=ifelse(criterion1==criterion2 & metric=="similarity", 100*value/similarity_PM, 100*value)) %>%
   group_by(population, CONSTRAINTS, qtls_info, criterion1, criterion2, metric) %>%
-  summarise(sd=sd(value), value=mean(value)) %>%
+  summarise(sd=round(sd(value)), value=round(mean(value))) %>%
   as.data.frame()
 
 cat("\n\n OUPUT : similarity \n\n")

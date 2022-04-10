@@ -25,7 +25,6 @@ suppressPackageStartupMessages(library(bigstatsr))
 suppressPackageStartupMessages(library(bigmemory))
 suppressPackageStartupMessages(library(readr))
 suppressPackageStartupMessages(library(parallel))
-suppressPackageStartupMessages(library(Directional))
 
 
 variables <- commandArgs(trailingOnly=TRUE)

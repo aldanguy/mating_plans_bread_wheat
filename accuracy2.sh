@@ -53,17 +53,17 @@ criteria_true=${r_big_files}article/criteria/criteria_${ID1}_no_filter.txt
 titre_criteria_estimated=${criteria_estimated}
 titre_criteria_true=${criteria_true}
 titre_output=${r}accuracy_sd_p${population}_n${population_ID}_${info}.txt
-
-
-
+titre_PROBA=${r}PROBA_p${population}_n${population_ID}.txt
 
 
 v1=${titre_criteria_estimated}
 v2=${titre_criteria_true}
 v3=${titre_output}
 v4=${info}
+v5=${titre_PROBA}
 
-Rscript ${r_scripts}accuracy_sd.R ${v1} ${v2} ${v3} ${v4}
+
+Rscript ${r_scripts}accuracy_sd.R ${v1} ${v2} ${v3} ${v4} ${v5}
 
 
 titre_criteria=${r_big_files}article/criteria/criteria_${ID0}.txt
@@ -91,6 +91,10 @@ v4=${titre_correlations_output}
 
 
 Rscript ${r_scripts}ratio.R ${v1} ${v2} ${v3} ${v4} 
+
+
+
+
 
 
 <<COMMENTS

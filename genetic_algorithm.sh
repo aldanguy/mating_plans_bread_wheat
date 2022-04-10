@@ -53,7 +53,7 @@ log_GA=${r_log}GA_${ID}_${criterion}.out
 
 
 source ${r_scripts}param_${constraints}.sh
-source ${r_scripts}param_GA_${param_GA}.sh
+source ${r_scripts}param_GA_${param_GA}_${criterion}.sh
 
 if [ ${constraints} == "CONSTRAINTS" ] || [ ${criterion} == "UC3" ]
 then
@@ -265,7 +265,8 @@ rm -rf ${r_analysis}
 
 
 
-else
+elif [ ${constraints} == "NO_CONSTRAINTS" ]
+then
 
 
 titre_criteria_input=${titre_criteria_base}.txt

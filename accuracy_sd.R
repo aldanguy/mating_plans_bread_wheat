@@ -36,6 +36,7 @@ titre_criteria_estimated <- variables[1]
 titre_criteria_true <-  variables[2]
 titre_output <- variables[3]
 info <- variables[4]
+titre_PROBA_output <- variables[5]
 
 # titre_criteria_estimated <-  "/work/adanguy/these/croisements/250222/results/criteria_sTRUE_iESTIMATED_q300rand_h0.4_gGBLUP_punselected_n1_mWE_CONSTRAINTS.txt" 
 # titre_criteria_true <-  "/work/adanguy/these/croisements/250222/results/criteria_sTRUE_iTRUE_q300rand_hNA_gNA_punselected_n1_mWE_NO_CONSTRAINTS_no_filter.txt"
@@ -60,10 +61,10 @@ ratio <- estimated  %>%
               dplyr::select(P1, P2, sd, PM) %>%
               rename(sd_true=sd, PM_true=PM),
             by=c("P1","P2")) %>%
-  mutate(bias_sd=(sd_esti-sd_true)/sd_true,
+  mutate(bias_sd2=((sd_esti)^2-(sd_true)^2)/(sd_true^2),
          bias_PM=(PM_esti-PM_true)/PM_true) %>%
   group_by(simulation, genetic_map, population, population_ID, CONSTRAINTS, qtls, qtls_info, heritability, genomic, progeny) %>%
-  summarise(bias_sd=mean(bias_sd), 
+  summarise(bias_sd2=mean(bias_sd2), 
             bias_PM=mean(bias_PM), 
             cor_sd=cor(sd_esti, sd_true),
             cor_PM=cor(PM_esti, PM_true),
@@ -78,7 +79,27 @@ ratio <- estimated  %>%
   dplyr::select(-one_of("CONSTRAINTS", "genetic_map", "qtls", "progeny", "simulation", "genomic"))
 
 
+PROBA_estimated <- estimated %>%
+  mutate(PROBA= 1 - 10^PROBA) %>%
+  filter(PROBA > 1e-4) %>%
+  nrow()
 
+
+PROBA_true <- true %>%
+  arrange(desc(PM)) %>%
+  slice(c(1:floor(0.1*nrow(true)))) %>%
+  mutate(PROBA= 1 - 10^PROBA) %>%
+  filter(PROBA > 1e-4) %>%
+  nrow()
+
+PROBA_true
+floor(0.1*nrow(true))
+
+
+PROBA <- data.frame(PROBA_true=PROBA_true/floor(0.1*nrow(true)),
+                    PROBA_estimated=PROBA_estimated/nrow(estimated),
+                    population_ID=true$population_ID[1],
+                    CONSTRAINTS=true$CONSTRAINTS[1])
 
 
 
@@ -89,6 +110,11 @@ head(ratio)
 dim(ratio)
 write_delim(ratio, titre_output, col_names = T, delim="\t", append = F, na="NA", quote_escape="none")
 
+
+cat("\n\nOUTPUT : PROBA \n\n")
+head(PROBA)
+dim(PROBA)
+write_delim(PROBA, titre_PROBA_output, col_names = T, delim="\t", append = F, na="NA", quote_escape="none")
 
 
 

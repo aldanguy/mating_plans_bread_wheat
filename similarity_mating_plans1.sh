@@ -146,6 +146,29 @@ do
     
 done
 
+      
+k=0
+
+for f in ${r}correlations_*
+do
+
+    if [ ${k} -eq 0 ]
+    then
+    
+    cat ${f} > ${r}correlations.txt
+    
+    else
+    
+    tail -n+2 ${f} >> ${r}correlations.txt
+    
+    
+    fi
+    
+    k=$((${k}+1))
+        #rm ${f}
+
+    
+done
 
 
 
@@ -161,7 +184,21 @@ v2=${titre_similarity_output}
 Rscript ${r_scripts}analyse_similarity.R ${v1} ${v2}
 
 
+titre_correlations_input=${r}correlations.txt
+
+titre_correlations_output=${r_results}correlations.txt
+
+
+v1=${titre_correlations_input}
+v2=${titre_correlations_output}
+
+
+Rscript ${r_scripts}analyse_correlations.R ${v1} ${v2}
+
+
+
 rm ${r}similarity.txt
+rm ${r}correlations.txt
 
 
 
